@@ -37,11 +37,17 @@
              (display-only; the census scoreboard keeps counting truth; the trino-parser validator
              becomes the real error authority). -->
         <highlightErrorFilter implementation="dev.sort.trino.sql.TrinoHighlightErrorFilter"/>
-        <!-- Stage-2 authority: engine-exact syntax errors from the BUNDLED trino-parser (version
+<!-- Stage-2 authority: engine-exact syntax errors from the BUNDLED trino-parser (version
              483). The highlightErrorFilter above suppresses the substrate's noisy red; THIS supplies
              the truth — Trino's own grammar, version-exact, on any mapped file (no engine, no data
              source needed: the authority is on the classpath, unlike duckdb's driver-jar path). -->
         <externalAnnotator language="TrinoBrikk" implementationClass="dev.sort.trino.validate.TrinoErrorAnnotator"/>
+        <!-- Stage-3 function/keyword completion from the bundled catalog (SHOW FUNCTIONS +
+             ReservedIdentifiers). The language attribute IS the scope — the contributor must NOT
+             use a withLanguage(...) pattern (it wouldn't match the completion-position leaf and the
+             provider would go silently dead; duckdb bisect). -->
+        <completion.contributor language="TrinoBrikk"
+                                 implementationClass="dev.sort.trino.sql.TrinoCompletionContributor"/>
     </extensions>
 
     <extensions defaultExtensionNs="com.intellij.database">
