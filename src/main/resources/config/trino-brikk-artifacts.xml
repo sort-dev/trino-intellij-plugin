@@ -1,0 +1,11 @@
+<artifacts>
+  <!-- Official Trino JDBC driver, pinned to the trino-parser version this plugin bundles (483).
+       Single Maven item resolved from Central; add a <version> block per adopted release — the
+       driver entry references this artifact by NAME. -->
+  <artifact id="trino-jdbc-brikk" name="Trino JDBC (Brikk)">
+    <version version="483">
+      <item type="maven" url="io.trino:trino-jdbc:483"/>
+      <item type="license" url="https://www.apache.org/licenses/LICENSE-2.0.txt"/>
+    </version>
+  </artifact>
+</artifacts>

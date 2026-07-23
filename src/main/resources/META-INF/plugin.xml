@@ -1,0 +1,53 @@
+<idea-plugin>
+    <id>dev.sort.trino-intellij-plugin</id>
+    <name>SQL Dialect for Trino</name>
+    <vendor url="https://sort.dev" email="jayson@sort.dev">Sortdev SRL</vendor>
+
+    <description><![CDATA[
+        <p>A real <b>Trino SQL dialect</b> for DataGrip and IntelliJ-family IDEs. Stock IDEs treat
+        Trino/Presto/Athena as generic data sources with the Generic SQL editor; this plugin gives
+        Trino SQL first-class treatment, validated by <b>Trino's own parser</b> (io.trino:trino-parser,
+        bundled, version 483).</p>
+
+        <p><i>Early seed — the measured-coverage machinery (census against Trino's own test suite,
+        engine-exact validation, function completion) is being built with the architecture proven by
+        our SQL Dialect for Apache Doris and SQL Dialect for DuckDB plugins.</i></p>
+
+        <p><i>This is an independent, community plugin developed by Sortdev SRL, not affiliated with
+        the Trino Software Foundation. "Trino" is a trademark of the Trino Software Foundation, used
+        only to identify the query engine this plugin supports.</i></p>
+    ]]></description>
+
+    <change-notes><![CDATA[
+        <b>0.1.0</b> — seed: Trino (Brikk) dialect (Postgres substrate), trino-parser 483 authority
+        embedded, Trino data-source template (sessionUser-aware, no-auth-without-SSL).
+    ]]></change-notes>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.database</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <lang.parserDefinition language="TrinoBrikk" implementationClass="dev.sort.trino.sql.TrinoParserDefinition"/>
+        <lang.commenter language="TrinoBrikk" implementationClass="dev.sort.trino.sql.TrinoCommenter"/>
+        <!-- LOAD-BEARING beyond colors: the SQL todo/id indexers derive their filter lexer from
+             the language's syntax highlighter; absence crashes the TODO index on our files. -->
+        <lang.syntaxHighlighterFactory language="TrinoBrikk" implementationClass="dev.sort.trino.sql.TrinoSyntaxHighlighterFactory"/>
+        <sql.dialect dbms="TRINO_BRIKK" implementationClass="dev.sort.trino.sql.TrinoSqlDialect" order="first"/>
+        <!-- Stage-1 livability: suppress the PG substrate's false red on Trino-only syntax
+             (display-only; the census scoreboard keeps counting truth; the trino-parser validator
+             becomes the real error authority). -->
+        <highlightErrorFilter implementation="dev.sort.trino.sql.TrinoHighlightErrorFilter"/>
+    </extensions>
+
+    <extensions defaultExtensionNs="com.intellij.database">
+        <dbms id="TRINO_BRIKK" instance="dev.sort.trino.TrinoDbms.TRINO_BRIKK"/>
+        <!-- Trino speaks ANSI-with-PG-adjacent surface; PG machinery is the family default for
+             everything we don't override. The modelFacade completes the facade/dialect/introspector
+             agreement (doris ClassCast lesson) — all three sit on the PG family. -->
+        <extensionFallback dbms="TRINO_BRIKK" fallbackDbms="POSTGRES"/>
+        <modelFacade dbms="TRINO_BRIKK" implementationClass="dev.sort.trino.TrinoModelFacade"/>
+        <errorHandler dbms="TRINO_BRIKK" implementationClass="com.intellij.database.dialects.generic.GenericDatabaseErrorHandler"/>
+        <driversConfig config="config/trino-brikk-drivers.xml"/>
+        <artifactsConfig config="config/trino-brikk-artifacts.xml"/>
+    </extensions>
+</idea-plugin>

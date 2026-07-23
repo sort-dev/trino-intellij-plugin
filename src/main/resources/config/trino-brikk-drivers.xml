@@ -1,0 +1,23 @@
+<drivers>
+  <!-- Trino under the Trino (Brikk) dialect, official io.trino:trino-jdbc driver via OUR pinned
+       artifact (config/trino-brikk-artifacts.xml) so driver auto-download always matches the
+       trino-parser version this plugin bundles and is graded against (483).
+
+       AUTH MODEL (user directive + driver facts): a Trino server WITHOUT TLS MUST NOT use
+       username/password auth — trino-jdbc hard-errors if a password is sent without SSL. The
+       right insecure-mode identity is the `sessionUser` parameter. The default template maps the
+       dialog's User field onto `sessionUser=` in the URL; the Password field MUST stay EMPTY on
+       this template (drivers.xml cannot hide/relabel the stock fields — quack lesson; a
+       DatabaseAuthProvider panel is the eventual fix). The TLS template uses real user/password
+       auth over SSL. -->
+  <driver id="trino-brikk" name="Trino (Brikk)" dialect="TrinoBrikk"
+          forced-dbms="TRINO_BRIKK" driver-class="io.trino.jdbc.TrinoDriver"
+          icon="/icons/trino-brikk.svg">
+    <url-template name="default (no TLS — sessionUser, leave Password empty)"
+      template="jdbc:trino://{host::localhost}[:{port::8080}][/{catalog}[/{schema}]]?sessionUser={user:param}[&amp;{:identifier}={:param}]"/>
+    <url-template name="TLS + password"
+      template="jdbc:trino://{host::localhost}[:{port::443}][/{catalog}[/{schema}]]?SSL=true[&amp;{:identifier}={:param}]"/>
+    <artifact name="Trino JDBC (Brikk)" use="true" rolling="true"/>
+    <option name="auto-sync" value="true"/>
+  </driver>
+</drivers>
