@@ -37,6 +37,12 @@
              (display-only; the census scoreboard keeps counting truth; the trino-parser validator
              becomes the real error authority). -->
         <highlightErrorFilter implementation="dev.sort.trino.sql.TrinoHighlightErrorFilter"/>
+        <!-- Stage-3 function/keyword completion from the bundled catalog (SHOW FUNCTIONS +
+             ReservedIdentifiers). The language attribute IS the scope — the contributor must NOT
+             use a withLanguage(...) pattern (it wouldn't match the completion-position leaf and the
+             provider would go silently dead; duckdb bisect). -->
+        <completion.contributor language="TrinoBrikk"
+                                 implementationClass="dev.sort.trino.sql.TrinoCompletionContributor"/>
     </extensions>
 
     <extensions defaultExtensionNs="com.intellij.database">
