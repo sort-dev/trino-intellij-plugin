@@ -77,9 +77,14 @@
         <!-- Stage-3 function/keyword completion from the bundled catalog (SHOW FUNCTIONS +
              ReservedIdentifiers). The language attribute IS the scope — the contributor must NOT
              use a withLanguage(...) pattern (it wouldn't match the completion-position leaf and the
-             provider would go silently dead; duckdb bisect). -->
+             provider would go silently dead; duckdb bisect). The SAME contributor also carries the
+             lazy schema-tree deepening trigger (QualifiedPathIntrospectProvider). -->
         <completion.contributor language="TrinoBrikk"
                                  implementationClass="dev.sort.trino.sql.TrinoCompletionContributor"/>
+        <!-- Banner while a lazy introspection kicked by completion is in flight: the async model
+             refresh lands after the current completion pass, so this tells the user to invoke
+             completion again once the namespace finishes loading. -->
+        <editorNotificationProvider implementation="dev.sort.trino.catalog.TrinoIntrospectNotifier"/>
     </extensions>
 
     <extensions defaultExtensionNs="com.intellij.database">
