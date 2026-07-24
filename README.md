@@ -6,10 +6,11 @@ are correct and accurate.
 
 Part of our SQL-tooling family alongside:
 
-* [Apache Doris dialect plugin](https://plugins.jetbrains.com/plugin/32777-sql-dialect-for-apache-doris)
-* [SQL Transpiler plugin](https://plugins.jetbrains.com/plugin/32900-sql-transpiler)
 * [Trino - Ducklake Connector](https://github.com/brikk/trino-ducklake)
 * [Trino - Doris Connector](https://github.com/brikk/trino-doris-connector)
+* [Apache Doris dialect plugin](https://plugins.jetbrains.com/plugin/32777-sql-dialect-for-apache-doris)
+* [DuckDB dialect plugin](https://plugins.jetbrains.com/plugin/33098-sql-dialect-for-duckdb-embedded--quack-)
+* [SQL Transpiler plugin](https://plugins.jetbrains.com/plugin/32900-sql-transpiler)
 * [brikk-house](https://github.com/brikk/brikk-house) - Data engineering platform (coming soon)
 
 
@@ -55,8 +56,10 @@ playbook possible: the editor's error authority IS the engine's grammar, bundled
 - **`default` connection type (no TLS)** — Trino refuses username/password auth without SSL (the
   JDBC driver hard-errors), so the **User field feeds `sessionUser=`** (your session identity) and
   the **Password field must stay empty**. Port 8080.
-- **`SSL` connection type** — real user/password auth over TLS. Port **8443** (Trino's HTTPS
-  default); the plugin sets `SSL=true` in the URL for you, so username/password just work.
+- **`SSL` connection type** — port **8443** (Trino's HTTPS default). Turn on TLS from the
+  **SSH/SSL tab** (check *Use SSL*; for a private CA, add the cert file there) — it's mapped to
+  trino-jdbc's real SSL settings, and User & Password auth then works over the encrypted
+  connection. (TLS is deliberately *not* baked into the URL — that would collide with the tab.)
 - **Catalog & schema are not part of the connection** — the data source is just host + port + auth.
   Pick catalogs in your SQL (`USE catalog.schema`, fully-qualified names) or the Schemas tab.
 - **Database tree**: comes from JDBC metadata via the generic introspector (the plugin routes

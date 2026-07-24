@@ -26,14 +26,14 @@
           icon="/icons/trino.svg">
     <url-template name="default"
       template="jdbc:trino://{host::localhost}?[:{port::8080}][\?&lt;&amp;,sessionUser={user:param},{:identifier}={:param}&gt;]"/>
-    <!-- SSL: default port 8443 (Trino's HTTPS default, NOT 443), and SSL=true is a LITERAL in the
-         URL path — NOT inside the [\?<&,…>] group. That group only renders when a URL PARAM is
-         present, but DataGrip's User&Password auth sends user/password as JDBC PROPERTIES (not URL
-         params), so the group stayed empty and SSL=true never emitted → the driver rejected the
-         password ("TLS/SSL is required…"). A literal `\?SSL=true` always emits. user/password ride
-         the Authentication fields as properties; trino-jdbc reads them over the TLS connection. -->
+    <!-- SSL: default port 8443 (Trino's HTTPS default). SSL is intentionally NOT baked into the URL
+         — enable it on the SSH/SSL tab (check "Use SSL"; for a private CA add the cert there). The
+         platform TrinoJdbcHelper (registered in plugin.xml) maps that to trino-jdbc's real props
+         (SSL / SSLTrustStorePath / SSLTrustStoreType / SSLVerification). Baking SSL=true in the URL
+         collides with the tab's property — trino-jdbc: "Connection property SSL is passed both by
+         URL and properties." Auth (user/password) rides the Authentication fields as properties. -->
     <url-template name="SSL"
-      template="jdbc:trino://{host::localhost}?[:{port::8443}]\?SSL=true"/>
+      template="jdbc:trino://{host::localhost}?[:{port::8443}][\?&lt;&amp;,{:identifier}={:param}&gt;]"/>
     <artifact name="Trino JDBC (Brikk)" use="true" rolling="true"/>
     <option name="auto-sync" value="true"/>
   </driver>

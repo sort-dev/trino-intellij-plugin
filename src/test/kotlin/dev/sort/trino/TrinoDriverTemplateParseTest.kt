@@ -75,14 +75,15 @@ class TrinoDriverTemplateParseTest {
     }
 
     @Test
-    fun sslTemplateForcesSslLiterallyAndDefaults8443() {
-        // DataGrip's User&Password auth sends user/password as JDBC PROPERTIES, so a `SSL=true`
-        // placed inside the conditional `[\?<&,…>]` group never emits (the group stays empty and
-        // the driver rejects the password). SSL=true must be a LITERAL in the URL path, and the
-        // port must default to Trino's HTTPS 8443 (not 443).
+    fun sslTemplateDefaults8443AndDoesNotBakeSsl() {
+        // SSL is enabled on the SSH/SSL tab (TrinoJdbcHelper → SSL / SSLTrustStore* props), NOT
+        // baked into the URL: a URL SSL=true collides with the tab's property — trino-jdbc,
+        // "Connection property SSL is passed both by URL and properties". The template only sets
+        // the HTTPS-default port (8443).
         val (_, template) = templates().first { it.first == "SSL" }
-        assertTrue("SSL template must bake SSL=true as a URL literal, got: $template", template.contains("SSL=true"))
         assertTrue("SSL template must default the port to 8443, got: $template", template.contains("8443"))
+        assertTrue("SSL template must NOT bake SSL into the URL (the SSH/SSL tab provides it), got: $template",
+            !template.contains("SSL=true"))
         val c = Collector()
         JdbcTemplateParser.parse(template, c)
         assertEquals("SSL template must parse without error: ${c.errors}", emptyList<String>(), c.errors)
