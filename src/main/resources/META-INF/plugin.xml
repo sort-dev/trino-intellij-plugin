@@ -37,6 +37,9 @@
              (display-only; the census scoreboard keeps counting truth; the trino-parser validator
              becomes the real error authority). -->
         <highlightErrorFilter implementation="dev.sort.trino.sql.TrinoHighlightErrorFilter"/>
+        <!-- TrinoLexer masks spans as comments / collapses spans to string tokens (census-driven
+             token bridge); this annotator repaints ONLY those spans with real word colors. -->
+        <annotator language="TrinoBrikk" implementationClass="dev.sort.trino.sql.TrinoMaskedSpanRecolorAnnotator"/>
     </extensions>
 
     <extensions defaultExtensionNs="com.intellij.database">
