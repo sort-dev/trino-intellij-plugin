@@ -1,10 +1,14 @@
 <artifacts>
   <!-- Official Trino JDBC driver, pinned to the trino-parser version this plugin bundles (483).
-       Single Maven item resolved from Central; add a <version> block per adopted release — the
+       DELIBERATELY type="jar" (direct file), NOT type="maven": trino-jdbc is a self-contained
+       shaded jar (~10 MB, zero runtime deps) but its published pom declares 48 compile
+       dependencies (guice, opentelemetry, even ojdbc11) — a maven item makes the IDE resolve the
+       whole tree: minutes of downloads and dozens of foreign jars on the driver classpath. The
+       jar item downloads exactly one file. Add a <version> block per adopted release — the
        driver entry references this artifact by NAME. -->
   <artifact id="trino-jdbc-brikk" name="Trino JDBC (Brikk)">
     <version version="483">
-      <item type="maven" url="io.trino:trino-jdbc:483"/>
+      <item type="jar" url="https://repo1.maven.org/maven2/io/trino/trino-jdbc/483/trino-jdbc-483.jar"/>
       <item type="license" url="https://www.apache.org/licenses/LICENSE-2.0.txt"/>
     </version>
   </artifact>
