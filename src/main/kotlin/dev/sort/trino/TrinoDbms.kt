@@ -11,9 +11,10 @@ import com.intellij.openapi.util.IconLoader
  * users get Generic SQL — so this plugin fills a void rather than shadowing built-ins.
  */
 object TrinoDbms {
-    // Placeholder mark (neutral, ours). The Trino name/logo are trademarks of the Trino Software
-    // Foundation — do NOT ship their logo without an explicit user decision + policy check.
-    private val icon = IconLoader.getIcon("/icons/trino-brikk.svg", TrinoDbms::class.java)
+    // Official Trino mark (trino.io/assets/images/trino-logo, used unmodified). "Trino" and the
+    // Trino logo are trademarks of the Trino Software Foundation; used per user decision to identify
+    // the engine this dialect supports (see trino.io/legal).
+    private val icon = IconLoader.getIcon("/icons/trino.svg", TrinoDbms::class.java)
 
     @JvmField
     val TRINO_BRIKK: Dbms = Dbms.create(

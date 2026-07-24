@@ -19,7 +19,7 @@
        user/password/...); for Trino `{database}` IS the catalog (dialog labels it "Database"). -->
   <driver id="trino-brikk" name="Trino (Brikk)" dialect="TrinoBrikk"
           forced-dbms="TRINO_BRIKK" driver-class="io.trino.jdbc.TrinoDriver"
-          icon="/icons/trino-brikk.svg">
+          icon="/icons/trino.svg">
     <url-template name="default (no TLS — sessionUser, leave Password empty)"
       template="jdbc:trino://{host::localhost}[:{port::8080}][/{database}[/{schema}]][\?&lt;&amp;,sessionUser={user:param},{:identifier}={:param}&gt;]"/>
     <url-template name="TLS + password"
