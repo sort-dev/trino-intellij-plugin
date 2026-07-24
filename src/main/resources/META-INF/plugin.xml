@@ -97,6 +97,15 @@
              genuinely useful tree: catalogs = connectors, schemas, tables, typed columns).
              Internal-API exposure defended at the class (IJPL-249765, doris precedent). -->
         <introspector dbms="TRINO_BRIKK" implementationClass="dev.sort.trino.TrinoIntrospectorGate"/>
+        <!-- Point the JDBC helper at the platform's OWN Trino helper (the stock TRINO dbms uses it),
+             shadowing the POSTGRES fallback. Without this our data sources inherit PgJdbcHelper,
+             whose enableSsl() injects Postgres SSL properties (ssl / sslmode / sslfactory /
+             sslfactoryarg) — which trino-jdbc rejects ("Unrecognized connection property 'ssl'…"),
+             breaking any connection that uses the SSH/SSL tab with a CA file. TrinoJdbcHelper maps
+             the SSL tab to the driver's real props (SSL / SSLTrustStorePath / SSLTrustStoreType /
+             SSLVerification) and gives correct Trino value handling. Both classes carry NO ApiStatus
+             annotations (verifier-clean). -->
+        <jdbcHelper dbms="TRINO_BRIKK" implementationClass="com.intellij.database.remote.jdbc.helpers.TrinoJdbcHelper"/>
         <errorHandler dbms="TRINO_BRIKK" implementationClass="com.intellij.database.dialects.generic.GenericDatabaseErrorHandler"/>
         <driversConfig config="config/trino-brikk-drivers.xml"/>
         <artifactsConfig config="config/trino-brikk-artifacts.xml"/>
