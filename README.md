@@ -6,13 +6,13 @@ are correct and accurate.
 
 Part of our SQL-tooling family alongside:
 
-* [Trino - Ducklake Connector](https://github.com/brikk/trino-ducklake)
-* [Trino - Doris Connector](https://github.com/brikk/trino-doris-connector)
-* [Apache Doris dialect plugin](https://plugins.jetbrains.com/plugin/32777-sql-dialect-for-apache-doris)
-* [DuckDB dialect plugin](https://plugins.jetbrains.com/plugin/33098-sql-dialect-for-duckdb-embedded--quack-)
-* [SQL Transpiler plugin](https://plugins.jetbrains.com/plugin/32900-sql-transpiler)
-* [brikk-house](https://github.com/brikk/brikk-house) - Data engineering platform (coming soon)
-
+* [**Doris SQL Dialect** for DataGrip & Jetbrains IDE's](https://plugins.jetbrains.com/plugin/32777-sql-dialect-for-apache-doris)
+* [**SQL Dialect Transpiler** for DataGrip & Jetbrains IDE's](https://plugins.jetbrains.com/plugin/32900-sql-transpiler)
+* [**DuckDB SQL** (embedded+Quack) for DataGrip & Jetbrains IDE's](https://plugins.jetbrains.com/plugin/33098-sql-dialect-for-duckdb-embedded--quack-)
+* [**Trino native DuckLake Catalog** with full Read/Write support](https://github.com/brikk/ducklake-integrations/tree/main/jvm/trino-ducklake)
+* [**Trino Duckbridge** - remote access to DuckDB via Quack](https://github.com/brikk/duckbridge)
+* [**Trino - Doris connector**](https://github.com/brikk/trino-doris-connector)
+* [**brikk-house** - Data engineering platform](https://github.com/brikk/brikk-house) (coming soon)
 
 > **In the IDE, use the `Trino (sort.dev)` dialect.** 
 
