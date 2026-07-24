@@ -1,34 +1,33 @@
 <drivers>
-  <!-- Trino under the Trino (Brikk) dialect, official io.trino:trino-jdbc driver via OUR pinned
+  <!-- Trino under the Trino (sort.dev) dialect, official io.trino:trino-jdbc driver via OUR pinned
        artifact (config/trino-brikk-artifacts.xml) so driver auto-download always matches the
        trino-parser version this plugin bundles and is graded against (483).
 
-       AUTH MODEL (user directive + driver facts): a Trino server WITHOUT TLS MUST NOT use
-       username/password auth — trino-jdbc hard-errors if a password is sent without SSL. The
-       right insecure-mode identity is the `sessionUser` parameter. The default template maps the
-       dialog's User field onto `sessionUser=` in the URL; the Password field MUST stay EMPTY on
-       this template (drivers.xml cannot hide/relabel the stock fields — quack lesson; a
-       DatabaseAuthProvider panel is the eventual fix). The TLS template uses real user/password
-       auth over SSL.
+       NAME: "Trino (sort.dev)", NOT bare "Trino" — DataGrip SHIPS a stock generic "Trino" driver
+       (io.trino.jdbc.TrinoDriver, no dialect); a bare name collides with it in the drivers list.
+       "(sort.dev)" matches the dialect label and marks this as the one carrying our SQL support.
+       DataGrip seeds a new data source's default name from the driver name, so new sources default
+       to "Trino (sort.dev)". id trino-brikk + forced-dbms stay stable.
 
-       Template DSL (TrinoDriverTemplateParseTest guards this headless): the query string MUST use
-       the `[\?<&,k=v,...>]` group form — a `\?`-escaped literal question mark opening a group
-       whose present items join with `&`. A bare `?`/`&` makes JdbcTemplateParser emit an error and
-       the connection dialog silently falls back to "URL only" with NO host/port fields (first-touch
-       bug, 0.1.0). Field names must be the parser's known locations (host/port/database/schema/
-       user/password/...); for Trino `{database}` IS the catalog (dialog labels it "Database"). -->
-  <!-- Driver name is intentionally the bare product name "Trino" (like stock ClickHouse/Snowflake):
-       DataGrip seeds a NEW data source's default name from the driver name, so this makes new
-       Trino data sources default to "Trino" rather than a branded label. There is no stock Trino
-       driver to collide with. The SQL-support identity lives on the dialect ("Trino (sort.dev)");
-       the id trino-brikk + forced-dbms stay stable. -->
-  <driver id="trino-brikk" name="Trino" dialect="TrinoBrikk"
+       AUTH MODEL (user directive + driver facts): a Trino server WITHOUT TLS MUST NOT use
+       username/password auth — trino-jdbc hard-errors if a password is sent without SSL. The right
+       insecure-mode identity is the `sessionUser` parameter. The default template maps the dialog's
+       User field onto `sessionUser=`; the Password field stays EMPTY on it. The SSL template uses
+       real user/password auth over TLS.
+
+       TEMPLATE SHAPE mirrors JetBrains' own working Trino template (host+port structured editor):
+       `{host::localhost}?[:{port::N}][\?<&,k=v,...>]` — note the `?` right after the host field and
+       the `[\?<&,...>]` query group (a `\?`-escaped literal `?` opening an `&`-joined group). A bare
+       `?`/`&`, or an unknown location field, drops the dialog to "URL only" with no host/port
+       (0.1.0 first-touch bug). CATALOG/SCHEMA are DELIBERATELY NOT in the URL — pick them in code
+       (`USE cat.schema`) / the Schemas tab; keeping the connection to host+port only. -->
+  <driver id="trino-brikk" name="Trino (sort.dev)" dialect="TrinoBrikk"
           forced-dbms="TRINO_BRIKK" driver-class="io.trino.jdbc.TrinoDriver"
           icon="/icons/trino.svg">
-    <url-template name="default (no TLS — sessionUser, leave Password empty)"
-      template="jdbc:trino://{host::localhost}[:{port::8080}][/{database}[/{schema}]][\?&lt;&amp;,sessionUser={user:param},{:identifier}={:param}&gt;]"/>
-    <url-template name="TLS + password"
-      template="jdbc:trino://{host::localhost}[:{port::443}][/{database}[/{schema}]][\?&lt;&amp;,SSL=true,user={user:param},password={password:param},{:identifier}={:param}&gt;]"/>
+    <url-template name="default"
+      template="jdbc:trino://{host::localhost}?[:{port::8080}][\?&lt;&amp;,sessionUser={user:param},{:identifier}={:param}&gt;]"/>
+    <url-template name="SSL"
+      template="jdbc:trino://{host::localhost}?[:{port::443}][\?&lt;&amp;,SSL=true,user={user:param},password={password:param},{:identifier}={:param}&gt;]"/>
     <artifact name="Trino JDBC (Brikk)" use="true" rolling="true"/>
     <option name="auto-sync" value="true"/>
   </driver>

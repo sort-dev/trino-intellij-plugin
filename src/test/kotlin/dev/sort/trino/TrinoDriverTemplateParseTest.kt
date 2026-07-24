@@ -75,15 +75,18 @@ class TrinoDriverTemplateParseTest {
     }
 
     @Test
-    fun noTemplateUsesTheUnknownCatalogLocationField() {
-        // The exact regression: `{catalog}` in path position is not a known location field and
-        // dropped the dialog to URL-only. Trino's catalog rides the canonical `{database}` field.
+    fun templatesAreHostPortOnlyNoPathFields() {
+        // Design decision: catalog/schema are NOT in the connection URL — users pick them in code
+        // (USE cat.schema) / the Schemas tab. So the templates must carry NO path/location field
+        // (the original `{catalog}` bug AND the later `{database}`/`{schema}` both gone) — just
+        // host + port + query params. This also sidesteps the whole path-field → "URL only" trap.
         for ((name, template) in templates()) {
             val c = Collector()
             JdbcTemplateParser.parse(template, c)
-            assertTrue("template '$name' must not reuse the unknown '{catalog}' path field " +
-                "(use {database}); params=${c.params}", "catalog" !in c.params)
-            assertTrue("template '$name' should carry the canonical {database} path field", "database" in c.params)
+            for (pathField in listOf("catalog", "database", "schema")) {
+                assertTrue("template '$name' must carry no path field (host/port only), found " +
+                    "'$pathField' in ${c.params}", pathField !in c.params)
+            }
         }
     }
 }
