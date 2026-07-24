@@ -75,6 +75,22 @@ class TrinoDriverTemplateParseTest {
     }
 
     @Test
+    fun sslTemplateForcesSslLiterallyAndDefaults8443() {
+        // DataGrip's User&Password auth sends user/password as JDBC PROPERTIES, so a `SSL=true`
+        // placed inside the conditional `[\?<&,…>]` group never emits (the group stays empty and
+        // the driver rejects the password). SSL=true must be a LITERAL in the URL path, and the
+        // port must default to Trino's HTTPS 8443 (not 443).
+        val (_, template) = templates().first { it.first == "SSL" }
+        assertTrue("SSL template must bake SSL=true as a URL literal, got: $template", template.contains("SSL=true"))
+        assertTrue("SSL template must default the port to 8443, got: $template", template.contains("8443"))
+        val c = Collector()
+        JdbcTemplateParser.parse(template, c)
+        assertEquals("SSL template must parse without error: ${c.errors}", emptyList<String>(), c.errors)
+        assertTrue("SSL template must still expose host+port, got ${c.params}",
+            "host" in c.params && "port" in c.params)
+    }
+
+    @Test
     fun templatesAreHostPortOnlyNoPathFields() {
         // Design decision: catalog/schema are NOT in the connection URL — users pick them in code
         // (USE cat.schema) / the Schemas tab. So the templates must carry NO path/location field
