@@ -79,26 +79,30 @@ class TrinoIntrospectorGateTest : BasePlatformTestCase() {
      *  server version (483) the native PG introspector IS selected for TRINO_BRIKK; below 9 it is not.
      *  This is what flips vs DuckDB. */
     fun testTrinoBrikkSelectsNativePgIntrospectorAtServerVersion() {
+        // HISTORY: pre-fix this test pinned the LANDMINE (at483 == true → the PG native
+        // introspector selected for TRINO_BRIKK, whose first pg_catalog query Trino cannot
+        // answer — see TrinoPgCatalogLandmineTest + REPORT-truth-tree.md). TrinoIntrospectorGate
+        // now vetoes native selection at EVERY version; the landmine mechanics remain pinned
+        // against POSTGRES itself below (the fallback that would have been chosen).
         val at483 = supportedByNativeIntrospector(TrinoDbms.TRINO_BRIKK, version(483))
         val at8 = supportedByNativeIntrospector(TrinoDbms.TRINO_BRIKK, version(8))
         println("=== supportedByNativeIntrospector(TRINO_BRIKK) === v483=$at483 v8=$at8")
-        assertTrue(
-            "LANDMINE: at Trino major 483 the platform selects the NATIVE (PG) introspector for " +
-                "TRINO_BRIKK — it will then run pg_catalog queries Trino cannot answer (see " +
-                "TrinoPgCatalogLandmineTest + REPORT-truth-tree.md)",
-            at483,
-        )
-        assertFalse("below the gate the native introspector must not be selected", at8)
+        assertFalse("LANDMINE DEFUSED: the gate must veto native selection at 483", at483)
+        assertFalse("and at every other version", at8)
+        // The underlying platform gate that made the landmine real, pinned where it lives:
+        val pgAt483 = supportedByNativeIntrospector(com.intellij.database.Dbms.POSTGRES, version(483))
+        assertTrue("PgIntrospector.Factory.isSupported = isOrGreater(9) — 483 clears it", pgAt483)
     }
 
-    /** Proves the routing: `forDbms(TRINO_BRIKK)` resolves — via our `extensionFallback -> POSTGRES` —
-     *  to the native PgIntrospector factory (not the generic JDBC one). */
-    fun testForDbmsResolvesTrinoBrikkToPgIntrospector() {
+    /** Pre-fix this proved the dangerous routing (forDbms via extensionFallback -> PgIntrospector).
+     *  Post-fix: our dbms-exact TrinoIntrospectorGate SHADOWS the POSTGRES fallback (DbmsExtension
+     *  copies from fallback only when the exact key is empty) — full selection assertions live in
+     *  TrinoIntrospectorRoutingTest. */
+    fun testForDbmsResolvesTrinoBrikkToOurGate() {
         val factory = forDbms(TrinoDbms.TRINO_BRIKK)
         assertNotNull("no introspector factory resolved for TRINO_BRIKK", factory)
         val cls = factory!!.javaClass.name
         println("=== forDbms(TRINO_BRIKK) === $cls native=${isNative(factory)}")
-        assertTrue("TRINO_BRIKK must resolve (via POSTGRES fallback) to the PG introspector, got $cls", cls.contains("PgIntrospector"))
-        assertTrue("the resolved PG introspector is native", isNative(factory))
+        assertTrue("TRINO_BRIKK must resolve to our gate (fallback shadowed), got $cls", cls.contains("TrinoIntrospectorGate"))
     }
 }
