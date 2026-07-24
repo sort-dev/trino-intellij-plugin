@@ -19,7 +19,9 @@ object TrinoDbms {
     @JvmField
     val TRINO_BRIKK: Dbms = Dbms.create(
         "TRINO_BRIKK",
-        "Trino (Brikk)",
+        // User-facing dialect label (the SQL-dialect picker); "sort.dev" is the vendor, no
+        // engine-backing claim. The internal id stays TRINO_BRIKK / TrinoBrikk (code + mappings).
+        "Trino (sort.dev)",
         { icon },
         Dbms.defaultPattern("trino")
     )

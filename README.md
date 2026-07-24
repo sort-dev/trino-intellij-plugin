@@ -6,7 +6,13 @@ errors.
 
 Built on the architecture of our shipped
 [SQL Dialect for Apache Doris](https://github.com/sort-dev/doris-intellij-plugin) and
-[SQL Dialect for DuckDB](https://github.com/sort-dev/duckdb-intellij-plugin) plugins.
+[SQL Dialect for DuckDB](https://github.com/sort-dev/duckdb-intellij-plugin) plugins, over the
+SQL tooling in [brikk-house](https://github.com/brikk/brikk-house) (more or less — the Trino
+parse authority here is Trino's own parser).
+
+> **In the IDE, use the `Trino (sort.dev)` dialect.** It's picked automatically for the bundled
+> Trino data source; for a plain SQL file, set it via the dialect switcher in the editor's
+> status bar, or **Settings → Languages & Frameworks → SQL Dialects**.
 
 ## SQL coverage — measured, not claimed
 
