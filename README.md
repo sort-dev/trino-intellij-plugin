@@ -1,26 +1,36 @@
 # SQL Dialect for Trino
 
-A real **Trino SQL dialect** for DataGrip and IntelliJ-family IDEs — validated by **Trino's own
-parser** (io.trino:trino-parser, bundled, currently **483**), so editor errors are the engine's
-errors.
+A full featured **Trino SQL dialect** for DataGrip and IntelliJ-family IDEs — validated by **Trino's own
+parser** (io.trino:trino-parser, bundled, currently version **483**), so editor errors and reporting
+are correct and accurate.
 
-Built on the architecture of our shipped
-[SQL Dialect for Apache Doris](https://github.com/sort-dev/doris-intellij-plugin) and
-[SQL Dialect for DuckDB](https://github.com/sort-dev/duckdb-intellij-plugin) plugins, over the
-SQL tooling in [brikk-house](https://github.com/brikk/brikk-house) (more or less — the Trino
-parse authority here is Trino's own parser).
+Part of our SQL-tooling family alongside:
 
-> **In the IDE, use the `Trino (sort.dev)` dialect.** It's picked automatically for the bundled
-> Trino data source; for a plain SQL file, set it via the dialect switcher in the editor's
-> status bar, or **Settings → Languages & Frameworks → SQL Dialects**.
+* [Apache Doris dialect plugin](https://plugins.jetbrains.com/plugin/32777-sql-dialect-for-apache-doris)
+* [SQL Transpiler plugin](https://plugins.jetbrains.com/plugin/32900-sql-transpiler)
+* [Trino - Ducklake Connector](https://github.com/brikk/trino-ducklake)
+* [Trino - Doris Connector](https://github.com/brikk/trino-doris-connector)
+* [brikk-house](https://github.com/brikk/brikk-house) - Data engineering platform (coming soon)
+
+
+> **In the IDE, use the `Trino (sort.dev)` dialect.** 
 
 ## SQL coverage — measured, not claimed
 
-Coverage is scored against a census harvested from **Trino's own repository at tag 483**
+Full **Trino SQL Dialect** with coverage scored against a census harvested from **Trino's own repository at tag 483**
 (product tests, documentation SQL, parser tests — every statement pre-graded valid by the
 bundled trino-parser): **150/150 syntax families / 490 statements parse clean (100%), zero
 degraded shapes**. The census regenerates mechanically per engine bump
 (`./gradlew harvestCensus`), so coverage is re-proven per Trino version, not asserted once.
+
+## Why
+
+Stock IDEs treat Trino/Presto/Athena as *generic* data sources with the Generic SQL editor:
+lambdas, `TABLE()` function arguments, `MATCH_RECOGNIZE`, `SHOW`/`USE`/session statements and
+catalog-qualified DDL red-flag or break statement boundaries. Trino publishes its parser as a
+plain Maven artifact, versioned with every release — which makes the strongest form of our
+playbook possible: the editor's error authority IS the engine's grammar, bundled.
+
 
 ## What it does
 
@@ -40,20 +50,15 @@ degraded shapes**. The census regenerates mechanically per engine bump
 - **Query cancel that works**: verified client- AND server-side against a live 483 (the query
   reaches FAILED in system.runtime.queries — not a silent client-only cancel).
 
-## Why
-
-Stock IDEs treat Trino/Presto/Athena as *generic* data sources with the Generic SQL editor:
-lambdas, `TABLE()` function arguments, `MATCH_RECOGNIZE`, `SHOW`/`USE`/session statements and
-catalog-qualified DDL red-flag or break statement boundaries. Trino publishes its parser as a
-plain Maven artifact, versioned with every release — which makes the strongest form of our
-playbook possible: the editor's error authority IS the engine's grammar, bundled.
-
 ## Connecting (important — Trino auth model)
 
-- **No TLS ⇒ no password.** Trino refuses username/password auth without SSL (the JDBC driver
-  hard-errors). On the default template the **User field feeds `sessionUser=`** (your identity
-  for the session) and the **Password field must stay empty**.
-- **TLS template**: real user/password auth over SSL (port 443 default).
+- **`default` connection type (no TLS)** — Trino refuses username/password auth without SSL (the
+  JDBC driver hard-errors), so the **User field feeds `sessionUser=`** (your session identity) and
+  the **Password field must stay empty**. Port 8080.
+- **`SSL` connection type** — real user/password auth over TLS. Port **8443** (Trino's HTTPS
+  default); the plugin sets `SSL=true` in the URL for you, so username/password just work.
+- **Catalog & schema are not part of the connection** — the data source is just host + port + auth.
+  Pick catalogs in your SQL (`USE catalog.schema`, fully-qualified names) or the Schemas tab.
 - **Database tree**: comes from JDBC metadata via the generic introspector (the plugin routes
   Trino data sources there automatically — Trino has no `pg_catalog` for a native one); if a data
   source was created before the plugin was installed, tick **Use JDBC-based introspector** in its
