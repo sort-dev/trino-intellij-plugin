@@ -22,7 +22,7 @@ CATALOG), suppression baseline, ModelFacade via PgModelAccess shim, trino-parser
 authority-proven by test, official trino-jdbc 483 pinned artifact + sessionUser-aware templates,
 boot/facts/authority tests.
 
-## Stage 1 — Census + boundaries
+## Stage 1 — Census + boundaries ✅
 
 Harvest a census from Trino's own repo at the 483 tag (`testing/trino-product-tests` SQL,
 docs SQL snippets, curated corpus) **graded by the bundled trino-parser** (exact authority, no
@@ -30,6 +30,14 @@ server): scoreboard = our-substrate-parse vs trino-parser verdict per statement.
 TrinoPsiParser dispatch + TrinoLexer bridges until the census is green (duckdb bar: 100% of
 sampled families, degraded shapes documented). Lambdas (`x -> f(x)` — PG lexes `->` as its JSON
 operator), TABLE()/descriptor TVF args, MATCH_RECOGNIZE are the expected token-layer cases.
+
+**Done 2026-07-23:** census = 150 families / 490 statements (product-tests + docs fences +
+parser-test fallback for synopsis-only heads, all trino-parser-graded; `harvestCensus` task),
+scoreboard GREEN-LOCKED at **150/150 — zero degraded shapes** (86 → 147 → 150 during the lane).
+The two surprises vs the predictions above: lambdas/TABLE() TVF args parse FINE on the PG base
+(no bridge needed), while SQL-routine bodies (`;` INSIDE `BEGIN…END`) were the real
+boundary-breaker — solved by a lexer body-collapse; MATCH_RECOGNIZE/PIVOT went comment-mask +
+recolor as predicted. Boundary/never-steal guards in TrinoStatementBoundaryTest.
 
 ## Stage 2 — The validator (engine-exact errors, zero infrastructure)
 

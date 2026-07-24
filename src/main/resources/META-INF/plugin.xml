@@ -37,7 +37,10 @@
              (display-only; the census scoreboard keeps counting truth; the trino-parser validator
              becomes the real error authority). -->
         <highlightErrorFilter implementation="dev.sort.trino.sql.TrinoHighlightErrorFilter"/>
-<!-- Stage-2 authority: engine-exact syntax errors from the BUNDLED trino-parser (version
+<!-- TrinoLexer masks spans as comments / collapses spans to string tokens (census-driven
+             token bridge); this annotator repaints ONLY those spans with real word colors. -->
+        <annotator language="TrinoBrikk" implementationClass="dev.sort.trino.sql.TrinoMaskedSpanRecolorAnnotator"/>
+        <!-- Stage-2 authority: engine-exact syntax errors from the BUNDLED trino-parser (version
              483). The highlightErrorFilter above suppresses the substrate's noisy red; THIS supplies
              the truth — Trino's own grammar, version-exact, on any mapped file (no engine, no data
              source needed: the authority is on the classpath, unlike duckdb's driver-jar path). -->
