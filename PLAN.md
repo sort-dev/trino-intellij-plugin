@@ -22,7 +22,7 @@ CATALOG), suppression baseline, ModelFacade via PgModelAccess shim, trino-parser
 authority-proven by test, official trino-jdbc 483 pinned artifact + sessionUser-aware templates,
 boot/facts/authority tests.
 
-## Stage 1 — Census + boundaries
+## Stage 1 — Census + boundaries ✅
 
 Harvest a census from Trino's own repo at the 483 tag (`testing/trino-product-tests` SQL,
 docs SQL snippets, curated corpus) **graded by the bundled trino-parser** (exact authority, no
@@ -30,6 +30,14 @@ server): scoreboard = our-substrate-parse vs trino-parser verdict per statement.
 TrinoPsiParser dispatch + TrinoLexer bridges until the census is green (duckdb bar: 100% of
 sampled families, degraded shapes documented). Lambdas (`x -> f(x)` — PG lexes `->` as its JSON
 operator), TABLE()/descriptor TVF args, MATCH_RECOGNIZE are the expected token-layer cases.
+
+**Done 2026-07-23:** census = 150 families / 490 statements (product-tests + docs fences +
+parser-test fallback for synopsis-only heads, all trino-parser-graded; `harvestCensus` task),
+scoreboard GREEN-LOCKED at **150/150 — zero degraded shapes** (86 → 147 → 150 during the lane).
+The two surprises vs the predictions above: lambdas/TABLE() TVF args parse FINE on the PG base
+(no bridge needed), while SQL-routine bodies (`;` INSIDE `BEGIN…END`) were the real
+boundary-breaker — solved by a lexer body-collapse; MATCH_RECOGNIZE/PIVOT went comment-mask +
+recolor as predicted. Boundary/never-steal guards in TrinoStatementBoundaryTest.
 
 ## Stage 2 — The validator (engine-exact errors, zero infrastructure)
 
@@ -52,6 +60,12 @@ live 483 container — catalogs (= connectors!), schemas, tables, columns, types
 introspector actually runs (expect generic JDBC via the PG-factory version-gate rejection);
 cancel truth (trino-jdbc implements cancel via the REST query API — verify); grids for
 SHOW/DESCRIBE/EXPLAIN. Decision memo before any custom introspector.
+
+**LANDMINE found + fixed:** the expectation above was wrong — Trino reports major **483**, which
+*clears* the PG factory's `>= 9` gate, so the native PG introspector was selected and died on
+`pg_catalog` at attach; fixed by `TrinoIntrospectorGate` (dbms-exact `<introspector>` vetoing all
+versions → generic JDBC introspector always; Path B `setUseJdbcIntrospector` rejected: the flag is
+`legacy-introspector`, force-reset by the platform after every IDE build change).
 
 ## Stage 5 — Console UX + auth polish
 

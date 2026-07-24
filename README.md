@@ -4,11 +4,35 @@ A real **Trino SQL dialect** for DataGrip and IntelliJ-family IDEs — validated
 parser** (io.trino:trino-parser, bundled, currently **483**), so editor errors are the engine's
 errors.
 
-**Status: early seed** (same-day sibling of our shipped
+Built on the architecture of our shipped
 [SQL Dialect for Apache Doris](https://github.com/sort-dev/doris-intellij-plugin) and
-[SQL Dialect for DuckDB](https://github.com/sort-dev/duckdb-intellij-plugin) plugins; the
-measured-coverage machinery — census against Trino's own test suite, engine-exact validation,
-function completion — is being built on that proven architecture). See PLAN.md.
+[SQL Dialect for DuckDB](https://github.com/sort-dev/duckdb-intellij-plugin) plugins.
+
+## SQL coverage — measured, not claimed
+
+Coverage is scored against a census harvested from **Trino's own repository at tag 483**
+(product tests, documentation SQL, parser tests — every statement pre-graded valid by the
+bundled trino-parser): **150/150 syntax families / 490 statements parse clean (100%), zero
+degraded shapes**. The census regenerates mechanically per engine bump
+(`./gradlew harvestCensus`), so coverage is re-proven per Trino version, not asserted once.
+
+## What it does
+
+- **Correct statement & run-block boundaries** across the Trino statement surface — including
+  SQL routines (`CREATE FUNCTION ... BEGIN ... END` with inner semicolons), `MATCH_RECOGNIZE`,
+  `PIVOT`, JSON clause functions, `GRANT`/`DENY`, branch DDL, prepared statements.
+- **Engine-exact error checking with zero setup**: every statement is validated by the bundled
+  **trino-parser 483** — Trino's own grammar — with squiggles at the engine's exact line/column
+  and the engine's own messages. No data source, no server, no configuration needed.
+- **Function completion**: 442 functions harvested live from Trino 483 `SHOW FUNCTIONS`
+  (scalar / aggregate / window / table, kind icons, return-type hints) + 83 reserved words from
+  the parser's own list.
+- **A working schema tree**: connectors appear as catalogs (tpch, memory, ...), via the generic
+  JDBC introspector — deliberately forced for this dbms (Trino reports its release number as the
+  JDBC major version, which would otherwise select PostgreSQL's introspector against a server
+  with no pg_catalog; see REPORT-truth-tree.md).
+- **Query cancel that works**: verified client- AND server-side against a live 483 (the query
+  reaches FAILED in system.runtime.queries — not a silent client-only cancel).
 
 ## Why
 
@@ -24,6 +48,10 @@ playbook possible: the editor's error authority IS the engine's grammar, bundled
   hard-errors). On the default template the **User field feeds `sessionUser=`** (your identity
   for the session) and the **Password field must stay empty**.
 - **TLS template**: real user/password auth over SSL (port 443 default).
+- **Database tree**: comes from JDBC metadata via the generic introspector (the plugin routes
+  Trino data sources there automatically — Trino has no `pg_catalog` for a native one); if a data
+  source was created before the plugin was installed, tick **Use JDBC-based introspector** in its
+  Options tab.
 
 ## Building from source
 

@@ -9,9 +9,24 @@
         Trino SQL first-class treatment, validated by <b>Trino's own parser</b> (io.trino:trino-parser,
         bundled, version 483).</p>
 
-        <p><i>Early seed — the measured-coverage machinery (census against Trino's own test suite,
-        engine-exact validation, function completion) is being built with the architecture proven by
-        our SQL Dialect for Apache Doris and SQL Dialect for DuckDB plugins.</i></p>
+        <ul>
+            <li><b>Measured coverage:</b> 150/150 syntax families (490 statements) from Trino's own
+                repository at tag 483 parse clean — SQL routines, MATCH_RECOGNIZE, PIVOT, JSON
+                clause functions, GRANT/DENY, prepared statements and more.</li>
+            <li><b>Engine-exact errors, zero setup:</b> the bundled trino-parser validates every
+                statement — Trino's own grammar, exact positions, no server needed.</li>
+            <li><b>Function completion:</b> 442 functions (kind icons, return types) harvested from
+                Trino 483, plus its 83 reserved words.</li>
+            <li><b>Working schema tree:</b> connectors as catalogs via the generic JDBC
+                introspector (deliberately selected for this dbms). Query cancel verified
+                client- and server-side.</li>
+            <li><b>Trino auth done right:</b> the no-TLS template maps the User field onto
+                <code>sessionUser=</code> (Trino refuses passwords without SSL — leave Password
+                empty); a TLS template carries real user/password auth.</li>
+        </ul>
+
+        <p>Built on the architecture of our SQL Dialect for Apache Doris and SQL Dialect for
+        DuckDB plugins.</p>
 
         <p><i>This is an independent, community plugin developed by Sortdev SRL, not affiliated with
         the Trino Software Foundation. "Trino" is a trademark of the Trino Software Foundation, used
@@ -19,8 +34,22 @@
     ]]></description>
 
     <change-notes><![CDATA[
-        <b>0.1.0</b> — seed: Trino (Brikk) dialect (Postgres substrate), trino-parser 483 authority
-        embedded, Trino data-source template (sessionUser-aware, no-auth-without-SSL).
+        <b>0.1.0</b> — first public release.
+        <ul>
+            <li><b>Trino dialect</b> with correct statement/run-block boundaries — coverage measured
+                against Trino's own repository at tag 483: 150/150 sampled syntax families
+                (490 statements), zero degraded shapes.</li>
+            <li><b>Engine-exact error checking</b> by the bundled trino-parser 483 (Trino's own
+                grammar; exact line/column; works with no data source configured).</li>
+            <li><b>Function completion:</b> 442 functions with kind icons + 83 reserved words,
+                harvested from Trino 483.</li>
+            <li><b>Schema tree</b> via the generic JDBC introspector (deliberately forced —
+                Trino's version number would otherwise select the PostgreSQL introspector against
+                a server with no pg_catalog); connectors appear as catalogs.</li>
+            <li><b>Data source template</b> with Trino's auth model built in: no-TLS uses
+                sessionUser (User field), never a password; TLS template for user/password auth.
+                Official trino-jdbc 483 pinned, auto-downloaded from Maven Central.</li>
+        </ul>
     ]]></change-notes>
 
     <depends>com.intellij.modules.platform</depends>
@@ -37,6 +66,20 @@
              (display-only; the census scoreboard keeps counting truth; the trino-parser validator
              becomes the real error authority). -->
         <highlightErrorFilter implementation="dev.sort.trino.sql.TrinoHighlightErrorFilter"/>
+<!-- TrinoLexer masks spans as comments / collapses spans to string tokens (census-driven
+             token bridge); this annotator repaints ONLY those spans with real word colors. -->
+        <annotator language="TrinoBrikk" implementationClass="dev.sort.trino.sql.TrinoMaskedSpanRecolorAnnotator"/>
+        <!-- Stage-2 authority: engine-exact syntax errors from the BUNDLED trino-parser (version
+             483). The highlightErrorFilter above suppresses the substrate's noisy red; THIS supplies
+             the truth — Trino's own grammar, version-exact, on any mapped file (no engine, no data
+             source needed: the authority is on the classpath, unlike duckdb's driver-jar path). -->
+        <externalAnnotator language="TrinoBrikk" implementationClass="dev.sort.trino.validate.TrinoErrorAnnotator"/>
+        <!-- Stage-3 function/keyword completion from the bundled catalog (SHOW FUNCTIONS +
+             ReservedIdentifiers). The language attribute IS the scope — the contributor must NOT
+             use a withLanguage(...) pattern (it wouldn't match the completion-position leaf and the
+             provider would go silently dead; duckdb bisect). -->
+        <completion.contributor language="TrinoBrikk"
+                                 implementationClass="dev.sort.trino.sql.TrinoCompletionContributor"/>
     </extensions>
 
     <extensions defaultExtensionNs="com.intellij.database">
@@ -46,6 +89,14 @@
              agreement (doris ClassCast lesson) — all three sit on the PG family. -->
         <extensionFallback dbms="TRINO_BRIKK" fallbackDbms="POSTGRES"/>
         <modelFacade dbms="TRINO_BRIKK" implementationClass="dev.sort.trino.TrinoModelFacade"/>
+        <!-- THE LANDMINE FIX (truth battery): dbms-exact registration shadows the POSTGRES
+             fallback on the introspector EP. Trino reports major 483, which CLEARS the PG native
+             introspector's version gate (>= 9) — without this veto the PG introspector is selected
+             and dies on pg_catalog at attach. The gate supports NO version, so the platform always
+             falls back to the generic JDBC introspector (which the truth battery proved reads a
+             genuinely useful tree: catalogs = connectors, schemas, tables, typed columns).
+             Internal-API exposure defended at the class (IJPL-249765, doris precedent). -->
+        <introspector dbms="TRINO_BRIKK" implementationClass="dev.sort.trino.TrinoIntrospectorGate"/>
         <errorHandler dbms="TRINO_BRIKK" implementationClass="com.intellij.database.dialects.generic.GenericDatabaseErrorHandler"/>
         <driversConfig config="config/trino-brikk-drivers.xml"/>
         <artifactsConfig config="config/trino-brikk-artifacts.xml"/>
