@@ -60,6 +60,14 @@
              agreement (doris ClassCast lesson) — all three sit on the PG family. -->
         <extensionFallback dbms="TRINO_BRIKK" fallbackDbms="POSTGRES"/>
         <modelFacade dbms="TRINO_BRIKK" implementationClass="dev.sort.trino.TrinoModelFacade"/>
+        <!-- THE LANDMINE FIX (truth battery): dbms-exact registration shadows the POSTGRES
+             fallback on the introspector EP. Trino reports major 483, which CLEARS the PG native
+             introspector's version gate (>= 9) — without this veto the PG introspector is selected
+             and dies on pg_catalog at attach. The gate supports NO version, so the platform always
+             falls back to the generic JDBC introspector (which the truth battery proved reads a
+             genuinely useful tree: catalogs = connectors, schemas, tables, typed columns).
+             Internal-API exposure defended at the class (IJPL-249765, doris precedent). -->
+        <introspector dbms="TRINO_BRIKK" implementationClass="dev.sort.trino.TrinoIntrospectorGate"/>
         <errorHandler dbms="TRINO_BRIKK" implementationClass="com.intellij.database.dialects.generic.GenericDatabaseErrorHandler"/>
         <driversConfig config="config/trino-brikk-drivers.xml"/>
         <artifactsConfig config="config/trino-brikk-artifacts.xml"/>
