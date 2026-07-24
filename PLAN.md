@@ -53,6 +53,12 @@ introspector actually runs (expect generic JDBC via the PG-factory version-gate 
 cancel truth (trino-jdbc implements cancel via the REST query API — verify); grids for
 SHOW/DESCRIBE/EXPLAIN. Decision memo before any custom introspector.
 
+**LANDMINE found + fixed:** the expectation above was wrong — Trino reports major **483**, which
+*clears* the PG factory's `>= 9` gate, so the native PG introspector was selected and died on
+`pg_catalog` at attach; fixed by `TrinoIntrospectorGate` (dbms-exact `<introspector>` vetoing all
+versions → generic JDBC introspector always; Path B `setUseJdbcIntrospector` rejected: the flag is
+`legacy-introspector`, force-reset by the platform after every IDE build change).
+
 ## Stage 5 — Console UX + auth polish
 
 sessionUser/no-auth-without-SSL matrix proven against the container (the connect-dialog rule:
