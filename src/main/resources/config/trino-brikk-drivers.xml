@@ -17,7 +17,12 @@
        the connection dialog silently falls back to "URL only" with NO host/port fields (first-touch
        bug, 0.1.0). Field names must be the parser's known locations (host/port/database/schema/
        user/password/...); for Trino `{database}` IS the catalog (dialog labels it "Database"). -->
-  <driver id="trino-brikk" name="Trino (Brikk)" dialect="TrinoBrikk"
+  <!-- Driver name is intentionally the bare product name "Trino" (like stock ClickHouse/Snowflake):
+       DataGrip seeds a NEW data source's default name from the driver name, so this makes new
+       Trino data sources default to "Trino" rather than a branded label. There is no stock Trino
+       driver to collide with. The SQL-support identity lives on the dialect ("Trino (sort.dev)");
+       the id trino-brikk + forced-dbms stay stable. -->
+  <driver id="trino-brikk" name="Trino" dialect="TrinoBrikk"
           forced-dbms="TRINO_BRIKK" driver-class="io.trino.jdbc.TrinoDriver"
           icon="/icons/trino.svg">
     <url-template name="default (no TLS — sessionUser, leave Password empty)"
