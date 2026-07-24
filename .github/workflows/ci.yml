@@ -117,7 +117,7 @@ jobs:
             gh release create "v$V" "$RENAMED" \
               --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
-              --title "SQL Dialect for Apache Doris $V" \
+              --title "SQL Dialect for Trino $V" \
               --notes "Plugin zip for manual installation (Settings → Plugins → ⚙ → Install Plugin from Disk).
           Built from \`$GITHUB_REF_NAME\` @ $GITHUB_SHA. See plugin.xml change-notes for details."
           fi

@@ -66,7 +66,7 @@ playbook possible: the editor's error authority IS the engine's grammar, bundled
 ./gradlew test          # boot + driver-facts + parser-authority (census scoreboard arrives with Stage 1)
 ```
 
-DataGrip 2026.1 SDK (auto-downloaded), Kotlin 2.3.0, JVM 21. One artifact serves platform
+DataGrip 2026.1 SDK (auto-downloaded), Kotlin 2.4.10, JVM 21. One artifact serves platform
 2026.1 + 2026.2 (builds 261/262).
 
 ## Credits
