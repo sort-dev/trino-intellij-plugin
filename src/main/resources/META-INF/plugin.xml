@@ -17,12 +17,14 @@
                 statement — Trino's own grammar, exact positions, no server needed.</li>
             <li><b>Function completion:</b> 442 functions (kind icons, return types) harvested from
                 Trino 483, plus its 83 reserved words.</li>
-            <li><b>Working schema tree:</b> connectors as catalogs via the generic JDBC
-                introspector (deliberately selected for this dbms). Query cancel verified
-                client- and server-side.</li>
-            <li><b>Trino auth done right:</b> the no-TLS template maps the User field onto
-                <code>sessionUser=</code> (Trino refuses passwords without SSL — leave Password
-                empty); a TLS template carries real user/password auth.</li>
+            <li><b>Schema tree that fills in as you type:</b> connectors appear as catalogs on
+                connect; drilling into a catalog or schema during completion introspects just that
+                namespace, one level at a time — so a huge <code>hive</code>/<code>iceberg</code>
+                catalog is never bulk-loaded. Query cancel verified client- and server-side.</li>
+            <li><b>Trino auth &amp; TLS built in:</b> no-TLS uses <code>sessionUser</code> (User
+                field; Trino refuses passwords without TLS — leave Password empty). For HTTPS,
+                enable TLS on the SSH/SSL tab (add your CA there for a private CA) — it maps to
+                trino-jdbc's real SSL settings and User &amp; Password auth just works.</li>
         </ul>
 
         <p>Built on the architecture of our SQL Dialect for Apache Doris and SQL Dialect for
@@ -45,10 +47,12 @@
                 harvested from Trino 483.</li>
             <li><b>Schema tree</b> via the generic JDBC introspector (deliberately forced —
                 Trino's version number would otherwise select the PostgreSQL introspector against
-                a server with no pg_catalog); connectors appear as catalogs.</li>
-            <li><b>Data source template</b> with Trino's auth model built in: no-TLS uses
-                sessionUser (User field), never a password; TLS template for user/password auth.
-                Official trino-jdbc 483 pinned, auto-downloaded from Maven Central.</li>
+                a server with no pg_catalog); connectors appear as catalogs, and completion
+                deepens the tree lazily one namespace at a time as you type.</li>
+            <li><b>Data sources with Trino's auth model built in:</b> no-TLS uses sessionUser
+                (User field), never a password; TLS is enabled from the SSH/SSL tab (CA-cert aware)
+                and mapped to trino-jdbc's own SSL settings. Official trino-jdbc 483 pinned,
+                auto-downloaded from Maven Central.</li>
         </ul>
     ]]></change-notes>
 

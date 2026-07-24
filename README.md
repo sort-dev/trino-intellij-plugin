@@ -48,6 +48,9 @@ playbook possible: the editor's error authority IS the engine's grammar, bundled
   JDBC introspector — deliberately forced for this dbms (Trino reports its release number as the
   JDBC major version, which would otherwise select PostgreSQL's introspector against a server
   with no pg_catalog; see REPORT-truth-tree.md).
+- **Completion that fills the tree in as you type**: catalogs list on connect; drilling into a
+  catalog or schema (`hive.`, `hive.web.`) introspects just that namespace, one level at a time —
+  so a `hive`/`iceberg` catalog with thousands of tables is never bulk-loaded.
 - **Query cancel that works**: verified client- AND server-side against a live 483 (the query
   reaches FAILED in system.runtime.queries — not a silent client-only cancel).
 
