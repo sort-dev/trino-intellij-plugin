@@ -109,12 +109,27 @@ dependencies {
 
 // Usage: ./gradlew harvestFunctionCatalog -Ptrino.harvest.url='jdbc:trino://localhost:18080?sessionUser=harvest'
 // Regenerates the bundled function/keyword catalog resources from a live Trino (SHOW FUNCTIONS).
-// Commit the output. Census harvest task arrives with the census lane.
+// Commit the output.
 val harvestFunctionCatalog by tasks.registering(JavaExec::class) {
     classpath = sourceSets["tools"].runtimeClasspath
     mainClass = "dev.sort.trino.tools.FunctionCatalogHarvestKt"
     args(
         providers.gradleProperty("trino.harvest.url").getOrElse("jdbc:trino://localhost:18080?sessionUser=harvest"),
         layout.projectDirectory.dir("src/main/resources/trino").asFile.absolutePath,
+    )
+}
+
+// Usage: ./gradlew harvestCensus [-PtrinoSrc=/path/to/trino-checkout-at-483]
+// Reads product-test .sql + docs ```sql fences, grades every candidate with the BUNDLED
+// trino-parser (exact authority), buckets into AST-derived syntax families, samples up to 4 per
+// family, writes src/test/resources/corpus/census/. Commit the output.
+val harvestCensus by tasks.registering(JavaExec::class) {
+    classpath = sourceSets["tools"].runtimeClasspath
+    mainClass = "dev.sort.trino.tools.TrinoCensusHarvestKt"
+    val src = providers.gradleProperty("trinoSrc")
+        .getOrElse(layout.projectDirectory.dir("../references/trino-upstream").asFile.absolutePath)
+    args(
+        src,
+        layout.projectDirectory.dir("src/test/resources/corpus/census").asFile.absolutePath,
     )
 }
