@@ -34,7 +34,7 @@ import javax.swing.Icon
 class TrinoCompletionContributor : CompletionContributor() {
 
     init {
-        // Scope comes from the plugin.xml registration (language="TrinoBrikk"). A withLanguage(...)
+        // Scope comes from the plugin.xml registration (language="TrinoSQL"). A withLanguage(...)
         // pattern here does NOT match the completion-position leaf and would silently disable the
         // provider (duckdb bisect). extend() with a bare psiElement() is correct.
         extend(CompletionType.BASIC, PlatformPatterns.psiElement(), CatalogProvider)

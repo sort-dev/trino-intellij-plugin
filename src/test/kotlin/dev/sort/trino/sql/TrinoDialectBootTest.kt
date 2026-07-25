@@ -21,7 +21,7 @@ class TrinoDialectBootTest : BasePlatformTestCase() {
     fun testDialectRegistersWithOwnDbms() {
         assertEquals("TRINO_BRIKK", TrinoDbms.TRINO_BRIKK.name)
         assertEquals(TrinoDbms.TRINO_BRIKK, TrinoSqlDialect.INSTANCE.dbms)
-        assertEquals("TrinoBrikk", TrinoSqlDialect.INSTANCE.id)
+        assertEquals("TrinoSQL", TrinoSqlDialect.INSTANCE.id)
     }
 
     fun testEverydayTrinoParsesClean() {

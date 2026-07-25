@@ -36,6 +36,11 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>0.2.0</b> — the injected-SQL language id is now <code>TrinoSQL</code> (was
+        <code>TrinoBrikk</code>), so embedding Trino SQL in a host language (<code>@Language</code>,
+        string injection) reads cleanly. If you had manually set a file's dialect, re-pick
+        <b>Trino (sort.dev)</b> once; connected data sources are unaffected.
+        <br/>
         <b>0.1.0</b> — first public release.
         <ul>
             <li><b>Trino dialect</b> with correct statement/run-block boundaries — coverage measured
@@ -60,11 +65,11 @@
     <depends>com.intellij.database</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <lang.parserDefinition language="TrinoBrikk" implementationClass="dev.sort.trino.sql.TrinoParserDefinition"/>
-        <lang.commenter language="TrinoBrikk" implementationClass="dev.sort.trino.sql.TrinoCommenter"/>
+        <lang.parserDefinition language="TrinoSQL" implementationClass="dev.sort.trino.sql.TrinoParserDefinition"/>
+        <lang.commenter language="TrinoSQL" implementationClass="dev.sort.trino.sql.TrinoCommenter"/>
         <!-- LOAD-BEARING beyond colors: the SQL todo/id indexers derive their filter lexer from
              the language's syntax highlighter; absence crashes the TODO index on our files. -->
-        <lang.syntaxHighlighterFactory language="TrinoBrikk" implementationClass="dev.sort.trino.sql.TrinoSyntaxHighlighterFactory"/>
+        <lang.syntaxHighlighterFactory language="TrinoSQL" implementationClass="dev.sort.trino.sql.TrinoSyntaxHighlighterFactory"/>
         <sql.dialect dbms="TRINO_BRIKK" implementationClass="dev.sort.trino.sql.TrinoSqlDialect" order="first"/>
         <!-- Stage-1 livability: suppress the PG substrate's false red on Trino-only syntax
              (display-only; the census scoreboard keeps counting truth; the trino-parser validator
@@ -72,18 +77,18 @@
         <highlightErrorFilter implementation="dev.sort.trino.sql.TrinoHighlightErrorFilter"/>
 <!-- TrinoLexer masks spans as comments / collapses spans to string tokens (census-driven
              token bridge); this annotator repaints ONLY those spans with real word colors. -->
-        <annotator language="TrinoBrikk" implementationClass="dev.sort.trino.sql.TrinoMaskedSpanRecolorAnnotator"/>
+        <annotator language="TrinoSQL" implementationClass="dev.sort.trino.sql.TrinoMaskedSpanRecolorAnnotator"/>
         <!-- Stage-2 authority: engine-exact syntax errors from the BUNDLED trino-parser (version
              483). The highlightErrorFilter above suppresses the substrate's noisy red; THIS supplies
              the truth — Trino's own grammar, version-exact, on any mapped file (no engine, no data
              source needed: the authority is on the classpath, unlike duckdb's driver-jar path). -->
-        <externalAnnotator language="TrinoBrikk" implementationClass="dev.sort.trino.validate.TrinoErrorAnnotator"/>
+        <externalAnnotator language="TrinoSQL" implementationClass="dev.sort.trino.validate.TrinoErrorAnnotator"/>
         <!-- Stage-3 function/keyword completion from the bundled catalog (SHOW FUNCTIONS +
              ReservedIdentifiers). The language attribute IS the scope — the contributor must NOT
              use a withLanguage(...) pattern (it wouldn't match the completion-position leaf and the
              provider would go silently dead; duckdb bisect). The SAME contributor also carries the
              lazy schema-tree deepening trigger (QualifiedPathIntrospectProvider). -->
-        <completion.contributor language="TrinoBrikk"
+        <completion.contributor language="TrinoSQL"
                                  implementationClass="dev.sort.trino.sql.TrinoCompletionContributor"/>
         <!-- Banner while a lazy introspection kicked by completion is in flight: the async model
              refresh lands after the current completion pass, so this tells the user to invoke

@@ -26,7 +26,7 @@ import dev.sort.trino.TrinoDbms
  * an EMPTY builtin-function map, breaking special-form builtins (CAST(x AS t), EXTRACT, ...).
  * Loading PgDialect's own definitions keeps us in sync with the platform.
  */
-class TrinoSqlDialect private constructor() : PgDialectBase("TrinoBrikk") {
+class TrinoSqlDialect private constructor() : PgDialectBase("TrinoSQL") {
     override fun getDbms(): Dbms = TrinoDbms.TRINO_BRIKK
 
     // PgDialectBase leaves these abstract (the concrete per-version dialects fill them in).
