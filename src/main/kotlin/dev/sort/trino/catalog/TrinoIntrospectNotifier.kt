@@ -5,8 +5,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.EditorNotificationPanel
 import com.intellij.ui.EditorNotificationProvider
-import com.intellij.ui.EditorNotifications
-import java.util.Collections
+import com.intellij.openapi.components.service
 import java.util.function.Function
 
 /**
@@ -16,8 +15,7 @@ import java.util.function.Function
  * banner says to invoke completion again once the namespace finishes loading (ported from the doris
  * plugin's `DorisPipesNotificationProvider`).
  *
- * Recorded on a deepen ([reportPending]); cleared on dismiss. One stable message per file (round-18
- * doris lesson: alternating texts flickered the banner on every keystroke).
+ * Cleared when the requesting refresh finishes or the user dismisses it.
  */
 class TrinoIntrospectNotifier : EditorNotificationProvider {
 
@@ -25,35 +23,17 @@ class TrinoIntrospectNotifier : EditorNotificationProvider {
         project: Project,
         file: VirtualFile,
     ): Function<in FileEditor, out EditorNotificationPanel?>? {
-        val message = PENDING[file.url] ?: return null
+        val requests = project.service<TrinoIntrospectionService>()
+        val namespace = requests.pending(file) ?: return null
         return Function { _: FileEditor ->
             EditorNotificationPanel(EditorNotificationPanel.Status.Info).apply {
-                text = message
+                text = "Trino: introspecting '$namespace'… invoke completion again when it finishes " +
+                    "(if nothing appears, introspect it in the Database view)."
                 createActionLabel("Dismiss") {
-                    PENDING.remove(file.url)
-                    EditorNotifications.getInstance(project).updateNotifications(file)
+                    requests.dismiss(file)
                 }
             }
         }
     }
 
-    companion object {
-        private val PENDING: MutableMap<String, String> = Collections.synchronizedMap(HashMap())
-
-        /** Show/refresh the "introspecting '<fqn>'…" banner for [file]. */
-        fun reportPending(project: Project, file: VirtualFile, fqn: String) {
-            val message = "Trino: introspecting '$fqn'… invoke completion again when it finishes " +
-                "(if nothing appears, introspect it in the Database view)."
-            if (PENDING.put(file.url, message) != message) {
-                EditorNotifications.getInstance(project).updateNotifications(file)
-            }
-        }
-
-        /** Clear the banner for [file] (e.g. once names resolve). */
-        fun clearPending(project: Project, file: VirtualFile) {
-            if (PENDING.remove(file.url) != null) {
-                EditorNotifications.getInstance(project).updateNotifications(file)
-            }
-        }
-    }
 }

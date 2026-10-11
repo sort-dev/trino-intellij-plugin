@@ -13,7 +13,6 @@ import com.intellij.patterns.PlatformPatterns
 import com.intellij.util.ProcessingContext
 import dev.sort.trino.catalog.TrinoAutoIntrospect
 import dev.sort.trino.catalog.TrinoDataSourceResolver
-import dev.sort.trino.catalog.TrinoIntrospectNotifier
 import dev.sort.trino.catalog.TrinoNamespacePath
 import icons.DatabaseIcons
 import javax.swing.Icon
@@ -65,7 +64,7 @@ class TrinoCompletionContributor : CompletionContributor() {
         ) {
             val file = parameters.originalFile
             if (!file.language.isKindOf(TrinoSqlDialect.INSTANCE)) return
-            runCatching {
+            dev.brikk.house.sql.intellij.recoverEditorOperation {
                 val text = file.text
                 val offset = parameters.offset.coerceAtMost(text.length)
                 val tail = text.substring((offset - 200).coerceAtLeast(0), offset)
@@ -87,12 +86,7 @@ class TrinoCompletionContributor : CompletionContributor() {
                 val realNode = (deepen.node as? DasNode)?.das
                 TrinoAutoIntrospect.request(
                     file.project, local, deepen.level, deepen.catalog, deepen.schema, realNode,
-                )
-                // Banner whether THIS pass kicked the refresh or an earlier one already did (the
-                // request de-dupes internally; the round-18 doris lesson is one STABLE message, so
-                // it never flickers on repeated keystrokes into the same namespace).
-                TrinoIntrospectNotifier.reportPending(
-                    file.project, file.viewProvider.virtualFile, parts.joinToString("."),
+                    file.viewProvider.virtualFile,
                 )
             }
         }

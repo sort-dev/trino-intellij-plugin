@@ -10,6 +10,12 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.psi.PsiManager
+import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
+import com.intellij.ui.EditorNotifications
+import dev.brikk.house.sql.intellij.recoverEditorOperation
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import dev.sort.trino.catalog.TrinoNamespacePath.Level
@@ -87,12 +93,13 @@ object TrinoAutoIntrospect {
         catalog: String,
         schema: String?,
         node: Any?,
+        file: VirtualFile? = null,
     ): Boolean {
         val key = keyFor(local.uniqueId, level, catalog, schema)
         if (!claimOnce(key)) return false
         return dev.brikk.house.sql.intellij.recoverEditorOperation {
             val addition = scopeFor(level, catalog, schema)
-            val current = local.introspectionScope
+            val current: TreePattern? = local.introspectionScope
             local.introspectionScope =
                 if (current == null) addition else TreePatternUtils.union(current, addition)
 
@@ -103,7 +110,11 @@ object TrinoAutoIntrospect {
             }
             val task = TrinoIntrospectionTasks.oneElementRefresh(local.uniqueId, element)
             project.service<TrinoIntrospectionService>()
-                .schedule(LoaderContext.selectTask(project, local, task))
+                .schedule(file, listOfNotNull(catalog, schema).joinToString(".")) {
+                    DataSourceSyncManager.getInstance().tryPerformSync(
+                        LoaderContext.selectTask(project, local, task), stopRunning = true, merge = false,
+                    )
+                }
             LOG.info("auto-introspect: scope widened + TARGETED one-element refresh for $key")
             true
         }.getOrElse { t ->
@@ -120,8 +131,40 @@ object TrinoAutoIntrospect {
 }
 
 @Service(Service.Level.PROJECT)
-internal class TrinoIntrospectionService(private val scope: CoroutineScope) {
-    fun schedule(context: LoaderContext) = scope.launch {
-        DataSourceSyncManager.getInstance().tryPerformSync(context, stopRunning = true, merge = false)
+internal class TrinoIntrospectionService(private val project: Project, private val scope: CoroutineScope) {
+    private data class Pending(val file: VirtualFile, val namespace: String)
+    private val requests = linkedMapOf<Any, Pending>()
+
+    fun pending(file: VirtualFile): String? = synchronized(requests) {
+        requests.values.lastOrNull { it.file == file }?.namespace
+    }
+
+    fun dismiss(file: VirtualFile) {
+        synchronized(requests) { requests.values.removeAll { it.file == file } }
+        EditorNotifications.getInstance(project).updateNotifications(file)
+    }
+
+    fun schedule(file: VirtualFile?, namespace: String, refresh: suspend () -> Unit): kotlinx.coroutines.Job {
+        val id = Any()
+        if (file != null) {
+            synchronized(requests) { requests[id] = Pending(file, namespace) }
+            EditorNotifications.getInstance(project).updateNotifications(file)
+        }
+        val job = scope.launch {
+            recoverEditorOperation { refresh() }.onSuccess {
+                if (file != null) ApplicationManager.getApplication().invokeLater {
+                    if (!project.isDisposed && file.isValid) {
+                        PsiManager.getInstance(project).findFile(file)?.let { DaemonCodeAnalyzer.getInstance(project).restart(it) }
+                    }
+                }
+            }.onFailure { Logger.getInstance(TrinoIntrospectionService::class.java).warn("Trino introspection failed", it) }
+        }
+        job.invokeOnCompletion {
+            val pending = synchronized(requests) { requests.remove(id) }
+            if (pending != null && !project.isDisposed) {
+                EditorNotifications.getInstance(project).updateNotifications(pending.file)
+            }
+        }
+        return job
     }
 }
