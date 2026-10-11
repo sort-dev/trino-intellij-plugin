@@ -8,6 +8,10 @@ import com.intellij.database.util.TreePattern
 import com.intellij.database.util.TreePatternUtils
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.components.Service
+import com.intellij.openapi.components.service
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import dev.sort.trino.catalog.TrinoNamespacePath.Level
 import org.jetbrains.annotations.TestOnly
 
@@ -36,9 +40,8 @@ import org.jetbrains.annotations.TestOnly
  *  - [LoaderContext] is `@ApiStatus.Internal` — unavoidable: it is the only public factory for a
  *    targeted introspection task (`selectTask`), and there is no non-internal seam. Pinned to the
  *    two factory calls here; the same class the doris plugin already uses under this ticket.
- *  - [DataSourceSyncManager].tryPerform is Kotlin-`@Deprecated` ("use coroutines"). The coroutine
- *    replacement is `tryPerformSync` (a suspend fun); this fail-soft, fire-and-forget completion
- *    path is not a coroutine context, so the stable non-suspend entry point is the correct one.
+ *  - [DataSourceSyncManager].tryPerformSync is scheduled in a project-owned coroutine scope.
+ *    The older AsyncTask entry points were removed in 263.
  *  - `IntrospectionTasks` is Kotlin-`internal` in metadata (public bytecode), reached through the
  *    [TrinoIntrospectionTasks] Java shim (Java ignores Kotlin visibility) — same as doris.
  *  - [TreePattern]/[TreePatternUtils]/`TreePatternNode`/`ObjectName`/`ObjectKind` and
@@ -87,7 +90,7 @@ object TrinoAutoIntrospect {
     ): Boolean {
         val key = keyFor(local.uniqueId, level, catalog, schema)
         if (!claimOnce(key)) return false
-        return runCatching {
+        return dev.brikk.house.sql.intellij.recoverEditorOperation {
             val addition = scopeFor(level, catalog, schema)
             val current = local.introspectionScope
             local.introspectionScope =
@@ -96,14 +99,11 @@ object TrinoAutoIntrospect {
             val element = node as? BasicElement
             if (element == null) {
                 LOG.info("auto-introspect: scope widened for $key; node is not a BasicElement — no refresh kicked")
-                return@runCatching false
+                return@recoverEditorOperation false
             }
             val task = TrinoIntrospectionTasks.oneElementRefresh(local.uniqueId, element)
-            // API status: LoaderContext is @ApiStatus.Internal, tryPerform is @Deprecated
-            // (coroutines) — see the class KDoc; both are the only stable seam for a targeted
-            // introspection from a non-suspend, fail-soft path (doris precedent, IJPL-249765).
-            DataSourceSyncManager.getInstance()
-                .tryPerform(LoaderContext.selectTask(project, local, task), true, false)
+            project.service<TrinoIntrospectionService>()
+                .schedule(LoaderContext.selectTask(project, local, task))
             LOG.info("auto-introspect: scope widened + TARGETED one-element refresh for $key")
             true
         }.getOrElse { t ->
@@ -116,5 +116,12 @@ object TrinoAutoIntrospect {
     @TestOnly
     fun resetForTest() {
         requested.clear()
+    }
+}
+
+@Service(Service.Level.PROJECT)
+internal class TrinoIntrospectionService(private val scope: CoroutineScope) {
+    fun schedule(context: LoaderContext) = scope.launch {
+        DataSourceSyncManager.getInstance().tryPerformSync(context, stopRunning = true, merge = false)
     }
 }

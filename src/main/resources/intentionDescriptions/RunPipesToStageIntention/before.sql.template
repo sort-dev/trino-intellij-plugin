@@ -1,0 +1,1 @@
+FROM orders |> WHERE orderkey &gt; 0 |> LIMIT 10

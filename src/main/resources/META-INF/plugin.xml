@@ -10,6 +10,10 @@
         bundled, version 483).</p>
 
         <ul>
+            <li><b>Built-in PIPE queries:</b> project-opt-in <code>|&gt;</code> syntax, validated
+                and lowered to Trino SQL through the normal console. SQL Transpiler is not required.</li>
+            <li><b>Brikk Kotlin editing:</b> resolved <code>Sql.trino</code> templates retain Kotlin
+                references while SQL gets binds, relation-column completion and navigation.</li>
             <li><b>Measured coverage:</b> 150/150 syntax families (490 statements) from Trino's own
                 repository at tag 483 parse clean — SQL routines, MATCH_RECOGNIZE, PIVOT, JSON
                 clause functions, GRANT/DENY, prepared statements and more.</li>
@@ -36,6 +40,15 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>0.3.0</b>
+        <ul>
+            <li>Built-in, project-scoped PIPE queries with cooperative Execute handling,
+                parameter substitution, generated-SQL validation, preview and run-to-stage.</li>
+            <li>Optional Brikk Kotlin editing for resolved Sql.trino calls, named binds,
+                relation slots and scoped input-column completion/navigation.</li>
+            <li>Shared brikk-sql-intellij-support library, newer-IDE introspection compatibility
+                and explicit Java 25 runtime for the bundled Trino parser.</li>
+        </ul>
         <b>0.2.0</b> — the injected-SQL language id is now <code>TrinoSQL</code> (was
         <code>TrinoBrikk</code>), so embedding Trino SQL in a host language (<code>@Language</code>,
         string injection) reads cleanly. If you had manually set a file's dialect, re-pick
@@ -63,8 +76,19 @@
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.database</depends>
+    <depends optional="true" config-file="trino-kotlin.xml">org.jetbrains.kotlin</depends>
+    <extensions defaultExtensionNs="org.jetbrains.kotlin">
+        <supportsKotlinPluginMode supportsK2="true" supportsK1="false"/>
+    </extensions>
+    <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="/META-INF/trino-pipes.xml" xpointer="xpointer(/idea-plugin/*)"/>
 
     <extensions defaultExtensionNs="com.intellij">
+        <sql.resolveExtension implementation="dev.sort.trino.brikk.BrikkSqlResolveExtension"/>
+        <sql.inspectionSuppressorDelegate implementation="dev.sort.trino.brikk.BrikkSqlInspectionSuppressor"/>
+        <completion.contributor language="TrinoSQL" implementationClass="dev.sort.trino.pipes.TrinoPipesCompletionContributor" order="first"/>
+        <annotator language="TrinoSQL" implementationClass="dev.sort.trino.pipes.TrinoPipeStageKeywordAnnotator"/>
+        <annotator language="TrinoSQL" implementationClass="dev.sort.trino.brikk.BrikkSqlContractAnnotator"/>
+        <gotoDeclarationHandler implementation="dev.sort.trino.brikk.BrikkSqlGotoDeclarationHandler"/>
         <lang.parserDefinition language="TrinoSQL" implementationClass="dev.sort.trino.sql.TrinoParserDefinition"/>
         <lang.commenter language="TrinoSQL" implementationClass="dev.sort.trino.sql.TrinoCommenter"/>
         <!-- LOAD-BEARING beyond colors: the SQL todo/id indexers derive their filter lexer from

@@ -78,8 +78,72 @@ playbook possible: the editor's error authority IS the engine's grammar, bundled
 ./gradlew test          # boot + driver-facts + parser-authority (census scoreboard arrives with Stage 1)
 ```
 
-DataGrip 2026.1 SDK (auto-downloaded), Kotlin 2.4.10, JVM 21. One artifact serves platform
-2026.1 + 2026.2 (builds 261/262).
+Compile SDK: IDEA 2026.1.3, Kotlin 2.4.10. Plugin and helper classes target Java 21;
+the bundled Trino 483 parser requires Java 25. Build/test with JDK 25 and use the
+supported IDE's bundled JBR 25. Kotlin integration is optional in DataGrip.
+
+SQL core/metadata 0.19.0 and SQL IntelliJ support 0.1.0 resolve from Maven Central.
+The current Brikk Kotlin integration uses the peer-owned 0.2.0-SNAPSHOT from Maven
+Local. Build that module in the updated brikk-house checkout before building this
+consumer. The ZIP embeds the helper, so installing the plugin requires no Maven
+setup. Its release promotion is tracked separately in the verification report.
+
+## Built-in PIPE queries
+
+Enable **Settings > Tools > Trino PIPE** for the current project. No SQL Transpiler
+installation is required. The workspace setting defaults off; `-Dtrino.pipes=false`
+is an emergency veto. Changing it reparses open SQL files.
+
+```sql
+FROM tpch.tiny.orders
+|> WHERE orderstatus = 'O'
+|> AGGREGATE count(*) AS orders GROUP BY custkey
+|> ORDER BY orders DESC
+|> LIMIT 10
+```
+
+Normal Execute lowers PIPE to Trino SQL through the usual console. Selection,
+script execution, parameters, result tabs and console ownership are preserved.
+Every selected PIPE is validated before the first request. Unsupported/lossy
+translation and invalid generated SQL stop execution.
+
+Alt+Enter or the **Trino PIPE** context menu provides generated-SQL preview and
+run-through-caret-stage. Stage keywords and known prior-stage columns complete.
+Run-to-stage selects top-level stages; a caret inside a nested pipeline is refused
+rather than silently running later inner stages. Normal Execute lowers nested pipelines.
+The translator retains exact rendering/source-map pairs. Console server errors
+currently remain visible against generated SQL; parameter-expanded coordinates
+are not presented as exact authored-source locations.
+
+## Brikk Kotlin editing
+
+Resolved `Sql.trino` calls inside `@BrikkSql` functions automatically enable a
+file-local editing profile in IDEA with Kotlin K2. The project PIPE setting stays
+independent. For example:
+
+```kotlin
+@BrikkSql
+fun selected(src: Rel<Events>, tenant: String) = Sql.trino("""
+    FROM $src()
+    |> WHERE tenant_id = $tenant
+    |> SELECT id, tenant_id
+""".trimIndent())
+```
+
+The SQL inspection view uses `src()` and `:tenant`, while Kotlin retains the
+authored references for rename and navigation. Declared and compiler-generated
+input contracts supply scoped column completion, resolution and Kotlin navigation.
+Aliases, joins and projection visibility are statement-local. Partial inputs stay
+partial; Kotlin type families do not invent exact SQL types.
+
+Inspection templates cannot be executed or previewed as compiled output. Execute
+the compiled/composed relation with its binding map. Complex interpolation is
+reported on the authored Kotlin; pending analysis withdraws stale classifications.
+
+Shared SQL/IDE mechanics live in `brikk-sql-intellij-support`. Kotlin recognition
+and contracts come from `brikk-engine-kotlin-intellij-support`. See
+[the progress and verification plan](TODO-intellij-shared-extraction.md) for the
+current dependency/release state and verification commands.
 
 ## Credits
 

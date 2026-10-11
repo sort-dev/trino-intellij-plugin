@@ -106,6 +106,12 @@ class TrinoErrorAnnotatorTest : BasePlatformTestCase() {
         assertNull("no statement to validate -> no info", annotator.collectInformation(trinoFile("-- just a comment\n/* another */")))
     }
 
+    fun testNativeCodePointColumnMapsToUtf16AfterSupplementaryCharacter() {
+        val (sql, errors) = annotate("SELECT '😀' AS emoji FROM t WHERE AND x")
+        assertEquals(1, errors.size)
+        assertEquals("AND", textOf(sql, errors.single().first))
+    }
+
     fun testValidTrinoStaysCleanThroughTheEditorPath() {
         // Exercises the full highlighting path (registration + apply) when the pass schedules;
         // valid Trino must never surface a "Trino:" error either way.

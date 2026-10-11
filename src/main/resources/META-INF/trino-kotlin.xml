@@ -1,0 +1,7 @@
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <languageInjectionContributor language="kotlin" implementationClass="dev.sort.trino.brikk.kotlin.BrikkTrinoInjectionContributor" order="first"/>
+        <languageInjectionPerformer language="kotlin" implementationClass="dev.sort.trino.brikk.kotlin.BrikkTrinoInjectionPerformer" order="first"/>
+        <annotator language="kotlin" implementationClass="dev.sort.trino.brikk.kotlin.BrikkTrinoHostAnnotator"/>
+    </extensions>
+</idea-plugin>

@@ -1,0 +1,21 @@
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <dynamicActionConfigurationCustomizer implementation="dev.sort.trino.pipes.TrinoPipesActionConfiguration"/>
+        <actionPromoter implementation="dev.sort.trino.pipes.TrinoPipesActionPromoter" order="first"/>
+        <projectConfigurable id="dev.sort.trino.pipes" displayName="Trino PIPE" parentId="tools" nonDefaultProject="true" instance="dev.sort.trino.pipes.TrinoPipesConfigurable"/>
+        <notificationGroup id="Trino PIPE" displayType="BALLOON"/>
+        <intentionAction>
+            <language>TrinoSQL</language><className>dev.sort.trino.pipes.PreviewPipeSqlIntention</className><category>Trino</category>
+        </intentionAction>
+        <intentionAction>
+            <language>TrinoSQL</language><className>dev.sort.trino.pipes.RunPipesToStageIntention</className><category>Trino</category>
+        </intentionAction>
+    </extensions>
+    <actions>
+        <group id="TrinoPipes.EditorMenu" text="Trino PIPE" popup="true">
+            <add-to-group group-id="EditorPopupMenu" anchor="first"/>
+            <action id="TrinoPipes.PreviewSql" class="dev.sort.trino.pipes.PreviewPipeSqlAction" text="Preview Generated SQL"/>
+            <action id="TrinoPipes.RunToStage" class="dev.sort.trino.pipes.RunPipesToStageAction" text="Run Stages up to Caret"/>
+        </group>
+    </actions>
+</idea-plugin>

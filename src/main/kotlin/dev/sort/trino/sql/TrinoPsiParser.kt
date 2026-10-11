@@ -11,6 +11,9 @@ package dev.sort.trino.sql
 import com.intellij.lang.PsiBuilder
 import com.intellij.sql.dialects.postgres.PgParser
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_STATEMENT
+import com.intellij.psi.impl.source.resolve.FileContextUtil
+import dev.sort.trino.pipes.TrinoPipes
+import dev.sort.trino.brikk.BrikkTrinoProfile
 
 /**
  * Trino statement parsing on the PG foundation, Tier-1 (statement boundaries).
@@ -35,8 +38,28 @@ import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_STATEMENT
  * roles — a structured PG parse would be wrong-shaped even when it happens to succeed).
  */
 class TrinoPsiParser : PgParser(false) {
+    private var pipeText: CharSequence? = null
+    private var pipeChunks: List<TrinoPipes.Chunk> = emptyList()
 
     override fun parseSqlStatement(builder: PsiBuilder, level: Int): Boolean {
+        val file = builder.getUserData(FileContextUtil.CONTAINING_FILE_KEY)
+        if (file?.let { TrinoPipes.isEnabled(it) } ?: TrinoPipes.isEnabled(builder.project)) {
+            if (pipeText !== builder.originalText) {
+                pipeText = builder.originalText
+                pipeChunks = TrinoPipes.chunks(builder.originalText.toString())
+            }
+            val chunk = pipeChunks.firstOrNull { builder.currentOffset >= it.startOffset && builder.currentOffset < it.endOffset }
+            if (chunk?.hasPipeOperator == true || BrikkTrinoProfile.forFile(file) != null && wordAt(builder, 0) == "FROM") {
+                val marker = builder.mark()
+                val end = chunk?.endOffset ?: builder.originalText.length
+                while (!builder.eof() && builder.currentOffset < end &&
+                    !(chunk?.boundaryError == null && builder.tokenText == ";" && builder.currentOffset == end - 1)) {
+                    if (!com.intellij.sql.dialects.base.SqlGeneratedParserUtil.parseUserParameter(builder, false, true)) builder.advanceLexer()
+                }
+                marker.done(SQL_STATEMENT)
+                return true
+            }
+        }
         when (wordAt(builder, 0)) {
             "USE", "SHOW", "DESCRIBE", "DESC", "DENY", "GRANT", "REVOKE",
             -> return parseLenientStatement(builder)
@@ -186,9 +209,27 @@ class TrinoPsiParser : PgParser(false) {
 
     // --- lenient machinery (StarRocks -> doris -> duckdb lineage) ---
 
+    override fun parseParameterOrVariableReference(builder: PsiBuilder, allowVariable: Boolean): Boolean {
+        val file = builder.getUserData(FileContextUtil.CONTAINING_FILE_KEY)
+        if (BrikkTrinoProfile.forFile(file) != null && builder.tokenText == ":") {
+            val marker = builder.mark()
+            val start = builder.currentOffset
+            builder.advanceLexer()
+            if (builder.currentOffset == start + 1 && builder.tokenText?.matches(Regex("[A-Za-z_][A-Za-z_0-9]*")) == true) {
+                builder.advanceLexer()
+                marker.done(com.intellij.sql.psi.SqlElementTypes.SQL_PARAMETER_REFERENCE)
+                return true
+            }
+            marker.rollbackTo()
+        }
+        return super.parseParameterOrVariableReference(builder, allowVariable)
+    }
+
     private fun parseLenientStatement(builder: PsiBuilder): Boolean {
         val marker = builder.mark()
-        while (!builder.eof() && builder.tokenText != ";") builder.advanceLexer()
+        while (!builder.eof() && builder.tokenText != ";") {
+            if (!com.intellij.sql.dialects.base.SqlGeneratedParserUtil.parseUserParameter(builder, false, true)) builder.advanceLexer()
+        }
         marker.done(SQL_STATEMENT)
         return true
     }

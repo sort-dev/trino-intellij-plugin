@@ -14,11 +14,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
+          java-version: 25
 
       - name: Set up Gradle (with caching)
         uses: gradle/actions/setup-gradle@v4
@@ -27,7 +27,7 @@ jobs:
         run: ./gradlew test
 
       - name: Build plugin
-        run: ./gradlew buildPlugin
+        run: ./gradlew buildPlugin verifyEmbeddedPipes
 
       - name: Upload plugin zip
         uses: actions/upload-artifact@v4
@@ -47,12 +47,7 @@ jobs:
   # Runs on every release-* push (and on demand) so a release can never again ship un-verified —
   # the 0.5.0 cancel feature shipped with its verifier findings unseen because nobody re-ran this.
   #
-  # Deliberately NOT a `needs:` gate for the release job: local/CI verifyPlugin once reported
-  # unresolved-class problems (grid classes, build 262) that JetBrains' own Marketplace verifier
-  # and a real IDE run both contradicted — likely an EAP-vs-RC target-build difference. Treat an
-  # unresolved-class failure here skeptically: cross-check the Marketplace verification rows (and
-  # bump the pinned IU build to the current RC) before believing it. The red X on the release
-  # branch is the signal to do that BEFORE publishing to the Marketplace.
+  # Release artifacts require both tests/build and the pinned five-target verifier matrix.
   verify:
     name: Plugin Verifier
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref_name, 'release-'))
@@ -60,11 +55,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
+          java-version: 25
 
       - name: Set up Gradle (with caching)
         uses: gradle/actions/setup-gradle@v4
@@ -82,7 +77,7 @@ jobs:
 
   release:
     name: GitHub Release
-    needs: build
+    needs: [build, verify]
     if: github.event_name == 'push' && startsWith(github.ref_name, 'release-')
     runs-on: ubuntu-latest
     permissions:

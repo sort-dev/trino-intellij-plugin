@@ -12,6 +12,13 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.sql.psi.SqlStatement
 import dev.sort.trino.sql.TrinoSqlDialect
 import io.trino.sql.parser.SqlParser
+import dev.sort.trino.pipes.TrinoPipes
+import dev.sort.trino.pipes.TrinoPipesEngine
+import dev.sort.trino.brikk.BrikkTrinoProfile
+import dev.brikk.house.sql.shape.SqlFragment
+import dev.brikk.house.sql.parser.ParseError
+import dev.brikk.house.sql.intellij.recoverEditorOperation
+import com.intellij.lang.injection.InjectedLanguageManager
 
 private val LOG = logger<TrinoErrorAnnotator>()
 
@@ -35,10 +42,12 @@ private val LOG = logger<TrinoErrorAnnotator>()
 class TrinoErrorAnnotator : ExternalAnnotator<TrinoErrorAnnotator.Info, TrinoErrorAnnotator.Result>() {
 
     /** Top-level statements as (document range, exact text) — the text is what goes to the parser. */
-    data class Info(val statements: List<Pair<TextRange, String>>)
+    data class Info(val statements: List<Pair<TextRange, String>>, val pipesEnabled: Boolean = false,
+                    val source: String? = null, val brikk: BrikkTrinoProfile? = null)
 
     /** Engine-confirmed errors, pre-mapped to absolute document ranges + display messages. */
-    data class Result(val errors: List<Pair<TextRange, String>>)
+    data class Result(val errors: List<Pair<TextRange, String>>, val pipesEnabled: Boolean = false,
+                      val source: String? = null, val brikk: Boolean = false)
 
     // The default 3-arg variant returns null when the file has PSI errors — but broken-looking PSI
     // is exactly when the engine's opinion matters (the substrate can't parse Trino-only syntax,
@@ -48,32 +57,66 @@ class TrinoErrorAnnotator : ExternalAnnotator<TrinoErrorAnnotator.Info, TrinoErr
 
     override fun collectInformation(file: PsiFile): Info? {
         if (!file.language.isKindOf(TrinoSqlDialect.INSTANCE)) return null
+        val profile = BrikkTrinoProfile.forFile(file)
+        if (profile != null) {
+            val text = InjectedLanguageManager.getInstance(file.project).getUnescapedText(file)
+            return Info(listOf(TextRange(0, text.length) to text), TrinoPipes.isEnabled(file), text, profile)
+        }
         val statements = PsiTreeUtil.findChildrenOfType(file, SqlStatement::class.java)
             .filterNot { it.parent is SqlStatement }        // top-level statements only
             .map { it.textRange to it.text }
             .filter { hasSql(it.second) }                   // skip empty / comment-only spans
-        return if (statements.isEmpty()) null else Info(statements)
+        return if (statements.isEmpty()) null else Info(statements, TrinoPipes.isEnabled(file), file.text)
     }
 
     override fun doAnnotate(collectedInfo: Info?): Result? {
         val info = collectedInfo ?: return null
-        return try {
+        return recoverEditorOperation {
             val parser = SqlParser()                        // one per pass (stateless, but cheap)
             val deadline = System.nanoTime() + TIME_BUDGET_NANOS
             val errors = ArrayList<Pair<TextRange, String>>()
             for ((range, text) in info.statements) {
                 if (System.nanoTime() > deadline) break     // belt+braces whole-file time-box
                 if (text.length > MAX_STATEMENT_LEN) continue
-                val error = try {
+                if (info.brikk != null) {
+                    if (info.brikk.issues.isEmpty()) {
+                        try { SqlFragment(text, "trino").ast } catch (e: ParseError) {
+                            val first = e.errors.firstOrNull()
+                            val offset = engineOffset(text, first?.line, first?.col)
+                            errors.add(TextRange(offset, (offset + 1).coerceAtMost(text.length)) to "Trino Brikk: ${first?.description ?: e.message}")
+                        } catch (e: dev.brikk.house.sql.parser.TokenError) {
+                            errors.add(TextRange(0, minOf(1, text.length)) to "Trino Brikk: ${e.message}")
+                        } catch (e: dev.brikk.house.sql.shape.ShapeError) {
+                            errors.add(TextRange(0, minOf(1, text.length)) to "Trino Brikk: ${e.message}")
+                        }
+                    }
+                    continue
+                }
+                if (info.pipesEnabled && TrinoPipes.containsPipeOperator(text)) {
+                    val translated = recoverEditorOperation { TrinoPipesEngine.transpile(text) }.getOrElse {
+                        TrinoPipesEngine.Transpile.Err(null, null, "PIPE validation failed: ${it.message}")
+                    }
+                    val error = when (translated) {
+                        is TrinoPipesEngine.Transpile.Err -> translated
+                        is TrinoPipesEngine.Transpile.Ok -> translated.executionError
+                        else -> null
+                    }
+                    if (error != null) {
+                        val offset = range.startOffset + engineOffset(text, error.line, error.col)
+                        errors.add(TextRange(offset, (offset + 1).coerceAtMost(range.endOffset)) to "Trino PIPE: ${error.message}")
+                    }
+                    continue
+                }
+                val error = recoverEditorOperation {
                     TrinoStatementValidator.parse(text, parser)
-                } catch (t: Throwable) {
+                }.getOrElse { t ->
                     LOG.warn("trino-parser threw validating a statement; skipping it", t)
                     null
                 } ?: continue
                 errors.add(tokenRange(text, range.startOffset, error) to "Trino: ${error.message}")
             }
-            Result(errors)
-        } catch (t: Throwable) {
+            Result(errors, info.pipesEnabled, info.source, info.brikk != null)
+        }.getOrElse { t ->
             LOG.warn("TrinoErrorAnnotator.doAnnotate failed; suppressing annotations this pass", t)
             null
         }
@@ -81,17 +124,27 @@ class TrinoErrorAnnotator : ExternalAnnotator<TrinoErrorAnnotator.Info, TrinoErr
 
     override fun apply(file: PsiFile, annotationResult: Result?, holder: AnnotationHolder) {
         val result = annotationResult ?: return
+        if (result.source != null) {
+            val current = if (result.brikk) InjectedLanguageManager.getInstance(file.project).getUnescapedText(file) else file.text
+            if (current != result.source || result.pipesEnabled != TrinoPipes.isEnabled(file)) return
+        }
         val docLen = PsiDocumentManager.getInstance(file.project).getDocument(file)?.textLength
             ?: file.textLength
-        for ((range, message) in result.errors) {
+        for ((rawRange, message) in result.errors) {
+            val range = if (result.brikk) {
+                val manager = InjectedLanguageManager.getInstance(file.project)
+                val mapped = TextRange(manager.mapUnescapedOffsetToInjected(file, rawRange.startOffset),
+                    manager.mapUnescapedOffsetToInjected(file, rawRange.endOffset))
+                manager.intersectWithAllEditableFragments(file, mapped).firstOrNull() ?: continue
+            } else rawRange
             val start = range.startOffset.coerceIn(0, docLen)
             val end = range.endOffset.coerceIn(start, docLen)
             if (end <= start) continue                      // stale / degenerate range: skip, never throw
-            try {
+            recoverEditorOperation {
                 holder.newAnnotation(HighlightSeverity.ERROR, message)
                     .range(TextRange(start, end))
                     .create()
-            } catch (t: Throwable) {
+            }.onFailure { t ->
                 LOG.warn("failed to create Trino annotation at [$start,$end)", t)
             }
         }
@@ -121,6 +174,16 @@ class TrinoErrorAnnotator : ExternalAnnotator<TrinoErrorAnnotator.Info, TrinoErr
     }
 
     private fun Char.isTokenChar(): Boolean = isLetterOrDigit() || this == '_'
+
+    private fun engineOffset(text: String, line: Int?, col: Int?): Int {
+        var offset = text.length - text.trimStart().length
+        repeat(((line ?: 1) - 1).coerceAtLeast(0)) {
+            offset = text.indexOf('\n', offset).takeIf { it >= 0 }?.plus(1) ?: text.length
+        }
+        val end = text.indexOf('\n', offset).takeIf { it >= 0 } ?: text.length
+        return (offset + ((col ?: 1) - 1).coerceAtLeast(0)).coerceAtMost(end)
+            .coerceIn(0, (text.length - 1).coerceAtLeast(0))
+    }
 
     /**
      * True when [text] contains something the parser could own — i.e. anything left once SQL

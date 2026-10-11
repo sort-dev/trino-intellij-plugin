@@ -57,7 +57,9 @@ object TrinoStatementValidator {
             idx = nl + 1
             currentLine++
         }
-        val within = (idx + (column - 1)).coerceIn(0, statementText.length)
+        val lineEnd = statementText.indexOf('\n', idx).takeIf { it >= 0 } ?: statementText.length
+        val count = statementText.codePointCount(idx, lineEnd)
+        val within = statementText.offsetByCodePoints(idx, (column - 1).coerceIn(0, count))
         return statementStart + within
     }
 }
