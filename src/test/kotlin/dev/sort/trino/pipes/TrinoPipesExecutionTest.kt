@@ -1,27 +1,21 @@
 package dev.sort.trino.pipes
 
-import com.intellij.database.DataBus
 import com.intellij.database.actions.ShowSqlParametersPanelAction
 import com.intellij.database.run.ConsoleDataRequest
 import com.intellij.database.console.JdbcConsole
 import com.intellij.database.console.client.*
-import com.intellij.database.console.session.DatabaseSession
-import com.intellij.database.dataSource.*
 import com.intellij.database.datagrid.*
-import com.intellij.database.psi.DbPsiFacade
 import com.intellij.database.settings.DatabaseSettings
 import com.intellij.notification.*
 import com.intellij.openapi.actionSystem.*
 import com.intellij.openapi.actionSystem.impl.SimpleDataContext
 import com.intellij.openapi.components.service
-import com.intellij.openapi.util.*
 import com.intellij.psi.PsiManager
-import com.intellij.sql.dialects.SqlDialectMappings
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.brikk.house.sql.intellij.*
 import dev.sort.trino.sql.TrinoSqlDialect
-import java.lang.reflect.Proxy
+import dev.brikk.house.sql.intellij.testing.RecordingConsole
 
 /** Real console and platform preparation. Only the session and producer are recording doubles. */
 class TrinoPipesExecutionTest : BasePlatformTestCase() {
@@ -114,7 +108,7 @@ class TrinoPipesExecutionTest : BasePlatformTestCase() {
     }
     fun testMissingSubmissionClientNeverDelegatesRawSql() {
         Fixture("FROM offline_rows |> SELECT id").use { f ->
-            f.hasSubmissionClient = false
+            f.console.session.detach(f.console)
             f.execute()
             assertEmpty(f.requests)
             assertEmpty(f.previous)
@@ -123,7 +117,7 @@ class TrinoPipesExecutionTest : BasePlatformTestCase() {
     fun testSubmissionFailureDoesNotRetryThroughPredecessor() {
         Fixture("FROM offline_rows |> SELECT id").use { f ->
             val failure = IllegalStateException("recording producer failed")
-            f.submissionFailure = failure
+            f.recording.onSubmit = { throw failure }
             try { f.execute(); fail("Submission failure must propagate") } catch (e: IllegalStateException) { assertSame(failure, e) }
             assertEquals(1, f.requests.size)
             assertFalse((f.requests.single() as DataRequest.QueryRequest).query.contains("|>"))
@@ -207,78 +201,15 @@ class TrinoPipesExecutionTest : BasePlatformTestCase() {
         private val vf = myFixture.configureByText("offline-pipe-$identity.sql", sql).virtualFile
         val file get() = PsiManager.getInstance(project).findFile(vf)!!
         val editor = myFixture.editor
-        val requests = mutableListOf<GridDataRequest>()
+        val requests get() = recording.requests
         val previous = mutableListOf<AnActionEvent>()
         val notifications = mutableListOf<Notification>()
-        var hasSubmissionClient = true
-        var submissionFailure: RuntimeException? = null
-        private val clients = mutableListOf<DatabaseSessionClient>()
-        private val auditors = mutableListOf<DataAuditor>()
-        private val userData = UserDataHolderBase()
         private val connection = project.messageBus.connect()
-        private var viewCreated = false
-        private val state = Proxy.newProxyInstance(DatabaseSession.State::class.java.classLoader, arrayOf(DatabaseSession.State::class.java)) { proxy, method, args ->
-            when (method.name) {
-                "equals" -> proxy === args!![0]
-                "hashCode" -> System.identityHashCode(proxy)
-                "toString" -> "Recording Trino state"
-                "isIdle", "isFinalized", "isEmpty" -> true
-                "isCancelled" -> false
-                "getStartTime", "getTimeSpentMs" -> 0L
-                "getWork" -> emptyList<DatabaseSession.State.Work>()
-                "getWorkFor", "getMostRecentWork" -> null
-                else -> throw UnsupportedOperationException("State: $method")
-            }
-        } as DatabaseSession.State
-        private val producer = object : DataProducer {
-            override fun processRequest(request: GridDataRequest) {
-                requests.add(request)
-                submissionFailure?.let { throw it }
-                auditors.forEach { it.jobSubmitted(request as DataRequest, this) }
-            }
-        }
-        private val bus = object : DataBus.Consuming {
-            override fun filterFor(owner: DataRequest.Owner): DataBus.Consuming = this
-            override fun getDataProducer(): DataProducer = producer
-            override fun addConsumer(consumer: DataConsumer) {}
-            override fun addAuditor(auditor: DataAuditor) { auditors.add(auditor) }
-        }
-        private val point = LocalDataSource().apply {
-            name = "Offline Trino PIPE $identity"
-            databaseDriver = DatabaseDriverManager.getInstance().getDriver("trino-brikk")!!
-            url = "jdbc:offline:trino-test"
-            isAutoSynchronize = false
-            isKeepAlive = false
-        }
-        private val session = Proxy.newProxyInstance(DatabaseSession::class.java.classLoader, arrayOf(DatabaseSession::class.java)) { proxy, method, args ->
-            when (method.name) {
-                "equals" -> proxy === args!![0]
-                "hashCode" -> System.identityHashCode(proxy)
-                "toString", "getTitle", "getDisplayName" -> "Recording Trino session"
-                "getConnectionPoint", "getTarget" -> point
-                "getState" -> { viewCreated = true; state }
-                "getProject" -> project
-                "getMessageBus" -> bus
-                "getClients" -> clients.toTypedArray()
-                "getClientsWithFile" -> if (hasSubmissionClient) clients.filterIsInstance<DatabaseSessionClientWithFile>().toTypedArray()
-                    else emptyArray<DatabaseSessionClientWithFile>()
-                "attach" -> { clients.add(args!![0] as DatabaseSessionClient); null }
-                "detach" -> { clients.remove(args!![0] as DatabaseSessionClient); null }
-                "isValid", "isIdle" -> true
-                "isConnected", "isInternal", "isService", "isCancelled" -> false
-                "getCurrentTx" -> DataRequest.AUTO_COMMIT
-                "getUserData" -> { @Suppress("UNCHECKED_CAST") userData.getUserData(args!![0] as Key<Any>) }
-                "putUserData" -> { @Suppress("UNCHECKED_CAST") userData.putUserData(args!![0] as Key<Any>, args[1]); null }
-                else -> throw UnsupportedOperationException("Session: $method")
-            }
-        } as DatabaseSession
-        val console: JdbcConsole
+        val recording: RecordingConsole
+        val console get() = recording.console
         init {
             dev.sort.trino.setSqlDialectMapping(project, vf, TrinoSqlDialect.INSTANCE)
-            LocalDataSourceManager.getInstance(project).addDataSource(point)
-            DbPsiFacade.getInstance(project).clearCaches()
-            assertNotNull(DbPsiFacade.getInstance(project).findDataSource(point.uniqueId))
-            console = JdbcConsole.newConsole(project).forFile(vf).fromDataSource(point).useSession(session).build()
+            recording = RecordingConsole(project, vf, "trino-brikk")
             assertTrue("New console must be valid", console.isValid)
             connection.subscribe(Notifications.TOPIC, object : Notifications {
                 override fun notify(notification: Notification) {
@@ -298,11 +229,8 @@ class TrinoPipesExecutionTest : BasePlatformTestCase() {
             connection.disconnect()
             notifications.forEach { it.expire() }
             try {
-                if (viewCreated) Disposer.dispose(console.consoleView)
-                Disposer.dispose(console)
+                recording.close()
             } finally {
-                LocalDataSourceManager.getInstance(project).removeDataSource(point)
-                DbPsiFacade.getInstance(project).clearCaches()
                 dev.sort.trino.setSqlDialectMapping(project, vf, null)
             }
         }

@@ -12,7 +12,7 @@ group = "dev.sort.trino"
 version = "0.3.5"
 
 val brikkSqlVersion = providers.gradleProperty("brikkSqlVersion").getOrElse("0.19.1")
-val sqlIdeVersion = providers.gradleProperty("sqlIdeVersion").getOrElse("0.1.1")
+val sqlIdeVersion = providers.gradleProperty("sqlIdeVersion").getOrElse("0.1.2-SNAPSHOT")
 val kotlinIdeVersion = providers.gradleProperty("kotlinIdeVersion").getOrElse("0.2.0")
 val kotlinInstalled = providers.gradleProperty("test.kotlin").orNull != "absent"
 val companionInstalled = providers.gradleProperty("test.sqlTranspiler").orNull == "installed"
@@ -28,6 +28,7 @@ repositories {
     if (sqlIdeVersion.endsWith("-SNAPSHOT")) mavenLocal {
         content {
             includeVersion("dev.brikk.house", "brikk-sql-intellij-support", sqlIdeVersion)
+            includeVersion("dev.brikk.house", "brikk-sql-intellij-test-support", sqlIdeVersion)
         }
     }
     mavenCentral()
@@ -53,6 +54,9 @@ dependencies {
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
     testImplementation(kotlin("test"))
     testImplementation("junit:junit:4.13.2")
+    testImplementation("dev.brikk.house:brikk-sql-intellij-test-support:$sqlIdeVersion") {
+        exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib")
+    }
 
     // BUNDLED authority: Trino's OWN parser, published by the Trino project as a plain Maven
     // artifact and versioned with the engine (483 = current release, proven latest on Central

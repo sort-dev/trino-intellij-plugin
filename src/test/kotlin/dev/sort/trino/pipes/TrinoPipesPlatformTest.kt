@@ -38,7 +38,7 @@ class TrinoPipesPlatformTest : BasePlatformTestCase() {
         val doc = myFixture.editor.document
         val snapshot = EditorSnapshot.capture(doc)
         WriteCommandAction.runWriteCommandAction(project) { doc.setText("SELECT 2"); doc.setText("SELECT 1") }
-        try { snapshot.requireCurrent(); fail("Expected stale snapshot") } catch (_: IllegalStateException) { }
+        try { snapshot.requireCurrent(); fail("Expected stale snapshot") } catch (_: SqlExecutionRefusal) { }
     }
     fun testLongPipelineDoesNotUseTheOldBoundedLookahead() {
         val text = "SELECT " + List(700) { "1" }.joinToString(" + ") + " AS value |> SELECT value; SELECT 2;"
