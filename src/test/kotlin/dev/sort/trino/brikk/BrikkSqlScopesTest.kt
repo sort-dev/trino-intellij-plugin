@@ -31,4 +31,32 @@ class BrikkSqlScopesTest {
             assertEquals(contract is ShapeResult.Available, ref.scope.relations.single().available)
         }
     }
+    @Test fun extendComputedColumnsAreAvailableWithoutAnAvailableInput() {
+        for (contract in listOf(shape("id"), ShapeResult.Unavailable("cold"))) {
+            val analysis = assertNotNull(BrikkSqlScopes.analyze(
+                "FROM src() |> EXTEND id + 1 AS computed, id AS copied |> WHERE computed > copied", mapOf("src" to contract)))
+            val scope = analysis.references.last { it.name == "computed" }.scope
+            assertTrue(scope.candidates("computed").single().first.available)
+            assertEquals(contract is ShapeResult.Available, scope.candidates("copied").single().first.available)
+        }
+    }
+    @Test fun extendPassthroughAvailabilityUnwrapsAliasesAndParentheses() {
+        for (contract in listOf(shape("id"), ShapeResult.Unavailable("cold"))) {
+            for (expression in listOf("id", "(id)", "((src.id))")) {
+                val analysis = assertNotNull(BrikkSqlScopes.analyze(
+                    "FROM src() |> EXTEND $expression AS copied |> WHERE copied > 0", mapOf("src" to contract)))
+                val candidate = analysis.references.last { it.name == "copied" }.scope.candidates("copied").single()
+                assertEquals(contract is ShapeResult.Available, candidate.first.available)
+                if (contract is ShapeResult.Available) {
+                    assertEquals(SqlFamily.WIDE_INTEGER, candidate.second.sqlFamily)
+                    assertEquals(ColumnNullability.NON_NULL, candidate.second.nullability)
+                }
+            }
+        }
+    }
+    @Test fun extendMissingPassthroughColumnIsUnavailable() {
+        val analysis = assertNotNull(BrikkSqlScopes.analyze(
+            "FROM src() |> EXTEND missing AS copied |> WHERE copied > 0", mapOf("src" to shape("id"))))
+        assertFalse(analysis.references.last { it.name == "copied" }.scope.candidates("copied").single().first.available)
+    }
 }

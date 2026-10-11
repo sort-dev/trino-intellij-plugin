@@ -74,6 +74,19 @@ open class BrikkTrinoInjectionTest : BasePlatformTestCase() {
         assertEquals(listOf("src"), BrikkTrinoProfile.forFile(file)!!.slots)
         assertEmpty(BrikkTrinoProfile.forFile(file)!!.issues)
     }
+    fun testFromFirstInjectionPreservesLaterStatements() {
+        for (first in listOf("FROM src()", "FROM src() |> SELECT id")) {
+            val file = injected(configure("@BrikkSql fun query(src: Rel<Nothing>) = Sql.trino(\"$first; SELECT 42 AS later; SELECT 43 AS tail\")"))
+            val statements = PsiTreeUtil.findChildrenOfType(file, com.intellij.sql.psi.SqlStatement::class.java)
+                .filterNot { it.parent is com.intellij.sql.psi.SqlStatement }
+            assertTrue(statements.map { it.text }.toString(), statements.any { it.text.trim().removeSuffix(";") == first })
+            assertTrue(statements.any { it.text.trim().removeSuffix(";") == "SELECT 42 AS later" })
+            assertTrue(statements.any { it.text.trim().removeSuffix(";") == "SELECT 43 AS tail" })
+            val selects = PsiTreeUtil.findChildrenOfType(file, com.intellij.sql.psi.SqlSelectStatement::class.java)
+            assertTrue(selects.any { it.text.trim().removeSuffix(";") == "SELECT 42 AS later" })
+            assertTrue(selects.any { it.text.trim().removeSuffix(";") == "SELECT 43 AS tail" })
+        }
+    }
     fun testUnknownAndComplexInterpolationAreNotInventedColumns() {
         val host = configure("@BrikkSql fun query(x: Int) = Sql.trino(\"SELECT \${x + 1}, \$missing\")")
         val file = injected(host)
