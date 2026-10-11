@@ -2,7 +2,7 @@ package dev.sort.trino.sql
 
 import com.intellij.psi.PsiErrorElement
 import com.intellij.psi.util.PsiTreeUtil
-import com.intellij.sql.dialects.SqlDialectMappings
+import dev.sort.trino.setSqlDialectMapping
 import com.intellij.sql.psi.SqlStatement
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.sort.trino.TrinoDbms
@@ -14,7 +14,7 @@ class TrinoDialectBootTest : BasePlatformTestCase() {
 
     private fun parse(sql: String): com.intellij.psi.PsiFile {
         val psi = myFixture.configureByText("b${counter++}.sql", sql)
-        SqlDialectMappings.getInstance(project).setMapping(psi.virtualFile, TrinoSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, psi.virtualFile, TrinoSqlDialect.INSTANCE)
         return com.intellij.psi.PsiManager.getInstance(project).findFile(psi.virtualFile)!!
     }
 
