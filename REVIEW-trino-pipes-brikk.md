@@ -1,6 +1,28 @@
 # Trino PIPE and shared IntelliJ support verification
 
-## Latest local install build: 0.3.3 candidate
+## Latest local install build: 0.3.4
+
+This build contains the Maven Central SQL IntelliJ support 0.1.1 JAR, SQL
+core/metadata 0.19.1 and Kotlin IntelliJ support 0.2.0. No snapshot JARs are bundled.
+The local ZIP was provided before follow-up verification, as requested.
+
+`/home/jayson/DEV/sortdev/trino-intellij-plugin/build/distributions/trino-intellij-plugin-0.3.4.zip`
+
+SHA-256: `0be8a16a636d5a411e75e8c3b60cffc8848268c87d8ccf97969993a31954ec97`.
+
+The packaged helper matches the Central JAR byte for byte, SHA-256
+`7ffdbb93990507db3f7ad83bc8e2571a7ef011f6debe0dd6b03d72d1b1ebd64e`.
+All 29 helper classes match the tested candidate; the original 27 classes from
+0.1.0 are unchanged. Package audit and both real rich-completion checks pass
+against the released helper. The candidate had already passed all five IDE
+verifier targets and the full consumer test suite.
+
+[Helper release](https://github.com/brikk/brikk-sql/actions/runs/38113629918).
+Migration notes: [DuckDB](HANDOFF-shared-column-completion-duckdb.md) and
+[Doris](HANDOFF-shared-column-completion-doris.md). SQL Transpiler has no current
+column-completion contributor and needs no presentation migration.
+
+## Local install build: 0.3.3 candidate
 
 Rich completion now uses the shared `SqlColumnCompletion` formatter: source alias,
 nullable/unknown type hints and distinct same-named columns from different aliases.

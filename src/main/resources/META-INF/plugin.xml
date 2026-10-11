@@ -40,6 +40,11 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>0.3.4</b>
+        <ul>
+            <li>Bundle the Maven Central 0.1.1 SQL IntelliJ support release for rich Brikk column completion.</li>
+            <li>Use released SQL core 0.19.1 and Kotlin IntelliJ support 0.2.0.</li>
+        </ul>
         <b>0.3.3</b>
         <ul>
             <li>Shared rich column completion: brikk column labels, relation aliases, nullable types and generated-contract origins.</li>

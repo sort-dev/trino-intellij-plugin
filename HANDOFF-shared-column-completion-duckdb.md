@@ -4,9 +4,9 @@ Related consumers: [Doris adoption](HANDOFF-shared-column-completion-doris.md).
 SQL Transpiler currently registers no column-completion contributor and needs
 no presentation migration for this change.
 
-Trino is adopting `SqlColumnCompletion` from SQL IntelliJ support 0.1.1, using
-DuckDB's current presentation as the reference. Publication/consumer evidence
-will be recorded in the Trino verification report when the update completes.
+Trino 0.3.4 uses `SqlColumnCompletion` from the published SQL IntelliJ support
+0.1.1 release, using DuckDB's presentation as the reference. The Central artifact
+and consumer checks are recorded in [the Trino report](REVIEW-trino-pipes-brikk.md).
 
 Source: `brikk-sql-intellij-support/src/dev.brikk.house.sql.intellij/SqlColumnCompletion.kt`
 in `/home/jayson/DEV/brikk/brikk-sql-worktrees/intellij-support`.

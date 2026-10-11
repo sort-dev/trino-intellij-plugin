@@ -4,8 +4,8 @@ Updated 2026-10-10. Owner: the Trino/Astra agent.
 
 Status: P0-P7 complete. Shared library published, core changes integrated on main,
 and Trino's original implementation is verified in `7c9b968`. The rich-completion
-follow-up uses released Kotlin support 0.2.0 and SQL core 0.19.1; shared presentation
-support 0.1.1 is publishing. Current local build evidence is in the review report.
+follow-up uses released Kotlin support 0.2.0, SQL core 0.19.1 and shared presentation
+support 0.1.1. Trino 0.3.4 and its local build evidence are in the review report.
 
 ## Goal and working state
 
@@ -19,10 +19,10 @@ Trino is the first consumer. DuckDB and Doris backports follow as separate tasks
 | Library worktree | `/home/jayson/DEV/brikk/brikk-sql-worktrees/intellij-support` |
 | Library branch | `intellij-support` |
 | Updated SQL baseline | `3fa69f2`, shared by `origin/main` and `origin/release/0.18.1` at fetch time |
-| Released SQL dependencies | Core and matching metadata `0.19.0` |
-| Repository development version | `0.19.0-SNAPSHOT`; source builds must retain honest development coordinates |
-| Released support version | Independent `0.1.0`, available on Maven Central |
-| Kotlin helper | Peer-owned `brikk-engine-kotlin-intellij-support:0.2.0-SNAPSHOT`, Maven Local during development |
+| Released SQL dependencies | Core and matching metadata `0.19.1` |
+| Repository development version | `0.20.0-SNAPSHOT`; source builds must retain honest development coordinates |
+| Released support version | Independent `0.1.1`, available on Maven Central |
+| Kotlin helper | `brikk-engine-kotlin-intellij-support:0.2.0`, Maven Central |
 | Reference implementations | Doris `178918b`, DuckDB `60fb207`; current dogfood artifacts stay under their owners' control |
 
 ### Completed preparation
@@ -247,7 +247,8 @@ until a separate range decision is justified by runtime results.
   publishing. Pin all tested artifact identities and required core/IDE versions.
 - [x] **P7.4** Publish scoped SQL release artifacts to Central and consume them
   without Maven Local shadowing. Direct downloads, checksums, class payloads and
-  consumer checks pass. Kotlin's explicitly requested snapshot is the sole local exception.
+  consumer checks pass. Kotlin support 0.2.0 is now released too; default builds
+  resolve only release coordinates from Central.
 - [x] **P7.5** Record final plugin ZIP hash, commits, commands and pass/skip/blocked
   results. Release gates attach to that artifact, not an earlier snapshot or version.
 
@@ -257,7 +258,7 @@ until a separate range decision is justified by runtime results.
   version boundaries, fixture compatibility lessons and verification requirements.
 - [x] **K1** The Kotlin helper 0.2.0 release is now on Central and Trino consumes it.
   Its 31 classes and full JAR checksum match the tested 0.2.0-SNAPSHOT payload.
-  The temporary SQL presentation helper override is explicit during its release.
+  The final 0.3.4 ZIP also uses the released SQL presentation helper 0.1.1.
 
 - [ ] **P8.1** Port DuckDB in a separately scoped change with its owner after Trino
   passes. Preserve its dogfood behavior and repeat console, Kotlin and artifact gates.
