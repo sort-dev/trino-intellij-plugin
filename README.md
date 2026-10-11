@@ -140,7 +140,7 @@ reported on the authored Kotlin; pending analysis withdraws stale classification
 
 Shared SQL/IDE mechanics live in `brikk-sql-intellij-support`. Kotlin recognition
 and contracts come from `brikk-engine-kotlin-intellij-support`. See
-[the progress and verification plan](TODO-intellij-shared-extraction.md) for the
+[the verification report](REVIEW-trino-pipes-brikk.md) for the
 current dependency/release state and verification commands.
 
 ## Credits
