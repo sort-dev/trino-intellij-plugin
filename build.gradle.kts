@@ -9,11 +9,11 @@ plugins {
 }
 
 group = "dev.sort.trino"
-version = "0.3.1"
+version = "0.3.3"
 
-val brikkSqlVersion = providers.gradleProperty("brikkSqlVersion").getOrElse("0.19.0")
-val sqlIdeVersion = providers.gradleProperty("sqlIdeVersion").getOrElse("0.1.0")
-val kotlinIdeVersion = providers.gradleProperty("kotlinIdeVersion").getOrElse("0.2.0-SNAPSHOT")
+val brikkSqlVersion = providers.gradleProperty("brikkSqlVersion").getOrElse("0.19.1")
+val sqlIdeVersion = providers.gradleProperty("sqlIdeVersion").getOrElse("0.1.1")
+val kotlinIdeVersion = providers.gradleProperty("kotlinIdeVersion").getOrElse("0.2.0")
 val kotlinInstalled = providers.gradleProperty("test.kotlin").orNull != "absent"
 val companionInstalled = providers.gradleProperty("test.sqlTranspiler").orNull == "installed"
 val siblingZips = listOf("doris", "duckdb").mapNotNull { dialect ->
@@ -25,10 +25,9 @@ val siblingZips = listOf("doris", "duckdb").mapNotNull { dialect ->
 }
 
 repositories {
-    mavenLocal {
+    if (sqlIdeVersion.endsWith("-SNAPSHOT")) mavenLocal {
         content {
-            // Peer-owned Trino recognition update; SQL core/support releases resolve only from Central.
-            includeVersion("dev.brikk.house", "brikk-engine-kotlin-intellij-support", "0.2.0-SNAPSHOT")
+            includeVersion("dev.brikk.house", "brikk-sql-intellij-support", sqlIdeVersion)
         }
     }
     mavenCentral()
@@ -125,7 +124,11 @@ tasks {
         systemProperty("plugin.verifier.home.dir", layout.buildDirectory.dir("plugin-verifier-cache").get().asFile.absolutePath)
     }
     processResources {
-        from(files("THIRD_PARTY_NOTICES.md")) { into("META-INF") }
+        inputs.property("sqlIdeVersion", sqlIdeVersion)
+        from(files("THIRD_PARTY_NOTICES.md")) {
+            into("META-INF")
+            filter { line: String -> line.replace("brikk-sql-intellij-support:0.1.1", "brikk-sql-intellij-support:$sqlIdeVersion") }
+        }
         // The shared Apache-2.0 library carries the complete license, identical to this product's license.
         from({ zipTree(configurations.runtimeClasspath.get().single { it.name.startsWith("brikk-sql-intellij-support-") }) }) {
             include("META-INF/LICENSE")

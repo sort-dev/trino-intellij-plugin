@@ -1,6 +1,31 @@
 # Trino PIPE and shared IntelliJ support verification
 
-## Latest local install build: 0.3.1
+## Latest local install build: 0.3.3 candidate
+
+Rich completion now uses the shared `SqlColumnCompletion` formatter: source alias,
+nullable/unknown type hints and distinct same-named columns from different aliases.
+Two real completion checks and a five-target verifier run passed against the helper
+candidate. SQL core is now 0.19.1 and Kotlin support is the released 0.2.0.
+
+The immediately available local-testing ZIP uses the compiled SQL helper candidate
+`0.1.0-SNAPSHOT` while its 0.1.1 Central release finishes:
+
+`/home/jayson/DEV/sortdev/trino-intellij-plugin/build/distributions/trino-intellij-plugin-0.3.3.zip`
+
+SHA-256: `ff0615f3ffccf16c911c80c6c2f8b509c2e2e29c6e16d1e0507f5a8198d9c4d1`.
+
+## Local install build: 0.3.2
+
+Relation-column completion now displays `brikk column`, matching DuckDB's label.
+`buildPlugin verifyEmbeddedPipes` passed. The packaged descriptor declares 0.3.2,
+and the packaged completion provider contains the new label.
+
+Installable copy:
+`/home/jayson/DEV/sortdev/trino-intellij-plugin/build/distributions/trino-intellij-plugin-0.3.2.zip`
+
+SHA-256: `01e2c42d14e45c1ce6f6e441be5c61cbb0c334e61d35244daaf90a03f9702f10`.
+
+## Local install build: 0.3.1
 
 Version bumped from 0.3.0 to 0.3.1 so the installed build is identifiable in Plugin
 Settings. `buildPlugin verifyEmbeddedPipes` passed; the ZIP descriptor declares
@@ -11,7 +36,6 @@ Installable copy:
 `/home/jayson/DEV/sortdev/trino-intellij-plugin/build/distributions/trino-intellij-plugin-0.3.1.zip`
 
 SHA-256: `650ecaab29803738f1ccdab891d37e0881b37678ef498de0a19c5e77634a1b2e`.
-The stable `trino-intellij-plugin.zip` path contains the same 0.3.1 artifact.
 
 ## Implementation verification: 0.3.0
 

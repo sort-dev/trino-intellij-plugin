@@ -40,6 +40,15 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>0.3.3</b>
+        <ul>
+            <li>Shared rich column completion: brikk column labels, relation aliases, nullable types and generated-contract origins.</li>
+            <li>Keep same-named columns from different relation aliases as distinct suggestions.</li>
+        </ul>
+        <b>0.3.2</b>
+        <ul>
+            <li>Label relation-column completions as "brikk column", matching the DuckDB plugin.</li>
+        </ul>
         <b>0.3.1</b>
         <ul>
             <li>New local build version for identifying the current built-in PIPE and Brikk Kotlin integration during testing.</li>

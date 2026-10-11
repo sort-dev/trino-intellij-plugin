@@ -1,5 +1,7 @@
 # DuckDB handoff: shared SQL IntelliJ support
 
+Follow-up: [shared rich column completion in SQL IntelliJ support 0.1.1](HANDOFF-shared-column-completion-duckdb.md).
+
 The 0.3.2 dogfood checkout and ZIP were left intact. DuckDB is the next proposed
 consumer after Trino; perform this as a separate backport with its own artifact gates.
 

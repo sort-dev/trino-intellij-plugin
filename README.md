@@ -82,11 +82,10 @@ Compile SDK: IDEA 2026.1.3, Kotlin 2.4.10. Plugin and helper classes target Java
 the bundled Trino 483 parser requires Java 25. Build/test with JDK 25 and use the
 supported IDE's bundled JBR 25. Kotlin integration is optional in DataGrip.
 
-SQL core/metadata 0.19.0 and SQL IntelliJ support 0.1.0 resolve from Maven Central.
-The current Brikk Kotlin integration uses the peer-owned 0.2.0-SNAPSHOT from Maven
-Local. Build that module in the updated brikk-house checkout before building this
-consumer. The ZIP embeds the helper, so installing the plugin requires no Maven
-setup. Its release promotion is tracked separately in the verification report.
+SQL core/metadata 0.19.1, SQL IntelliJ support 0.1.1 and Brikk Kotlin support 0.2.0
+resolve from Maven Central. The ZIP embeds the helpers, so installation requires
+no Maven setup. An explicit `-PsqlIdeVersion=...-SNAPSHOT` permits a coordinate-scoped
+Maven Local override when developing the SQL helper.
 
 ## Built-in PIPE queries
 

@@ -29,6 +29,7 @@ class TrinoPipesEngineTest {
         assertTrue(chunks[0].text.contains("RETURN 1; END;"))
         assertTrue(chunks[1].hasPipeOperator)
         assertNotNull(TrinoPipes.chunks("FROM t |> WHERE x = 'bad; SELECT 2").single().boundaryError)
+        assertNotNull(TrinoPipes.chunks("FROM t |> SELECT id /* unfinished").single().boundaryError)
     }
     @Test fun rejectedStatementsAndParametersNeverFallThrough() {
         val adapter = TrinoExecutionAdapter()

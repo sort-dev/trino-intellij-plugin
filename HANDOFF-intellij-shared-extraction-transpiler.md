@@ -16,6 +16,12 @@ core/verifier version choices while completing your native-verification review.
 
 ## APIs useful to your plan
 
+Column-display follow-up: SQL IntelliJ support 0.1.1 adds `SqlColumnCompletion`
+for alias/type/nullability/origin rendering. The current Transpiler source and
+descriptor have no column-completion contributor, so this change needs no local
+adoption. It is available if that feature is added later; the rendering consumers
+today are the dialect plugins.
+
 - **Core script ranges:** `SqlScriptSnapshot.parse(text, dialect)` returns ranges
   with leading trivia/terminator ownership, half-open UTF-16 offsets, actual PIPE
   visibility and explicit incomplete/unsupported boundary errors. Commands retain

@@ -1,5 +1,7 @@
 # Doris handoff: shared SQL IntelliJ support
 
+Follow-up: [shared rich column completion in SQL IntelliJ support 0.1.1](HANDOFF-shared-column-completion-doris.md).
+
 Owner of extraction: Trino/Astra. Doris's dogfood checkout and ZIP were left intact.
 This is a separate backport, not an instruction to replace the user's installed build.
 

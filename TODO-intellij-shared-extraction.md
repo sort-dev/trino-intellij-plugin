@@ -3,9 +3,9 @@
 Updated 2026-10-10. Owner: the Trino/Astra agent.
 
 Status: P0-P7 complete. Shared library published, core changes integrated on main,
-Trino 0.3.0 committed and its final ZIP verified. Kotlin helper 0.2.0-SNAPSHOT remains
-the user-requested development dependency; its Central promotion and peer backports
-are the explicit follow-ups below. Consumer implementation commit: `7c9b968`.
+and Trino's original implementation is verified in `7c9b968`. The rich-completion
+follow-up uses released Kotlin support 0.2.0 and SQL core 0.19.1; shared presentation
+support 0.1.1 is publishing. Current local build evidence is in the review report.
 
 ## Goal and working state
 
@@ -255,9 +255,9 @@ until a separate range decision is justified by runtime results.
 
 - [x] **P8.0** Write separate Doris, DuckDB and Transpiler handoff files with APIs,
   version boundaries, fixture compatibility lessons and verification requirements.
-- [ ] **K1** Peer-owned follow-up: promote the Kotlin helper 0.2.0-SNAPSHOT to a
-  released version, switch Trino's remaining dependency and repeat consumer checks.
-  This is the requested local-snapshot arrangement, not a hidden Central dependency.
+- [x] **K1** The Kotlin helper 0.2.0 release is now on Central and Trino consumes it.
+  Its 31 classes and full JAR checksum match the tested 0.2.0-SNAPSHOT payload.
+  The temporary SQL presentation helper override is explicit during its release.
 
 - [ ] **P8.1** Port DuckDB in a separately scoped change with its owner after Trino
   passes. Preserve its dogfood behavior and repeat console, Kotlin and artifact gates.

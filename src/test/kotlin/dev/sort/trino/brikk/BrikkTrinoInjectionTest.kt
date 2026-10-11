@@ -105,13 +105,31 @@ open class BrikkTrinoInjectionTest : BasePlatformTestCase() {
     }
     fun testPipeCompletionAndProjectionVisibility() {
         val host = configure("""
-            interface Events : Partial { val id: Long; val amount: Double? }
+            interface Events : Partial { val id: Long; val amount: Double?; val amount_total: Double }
             @BrikkSql fun query(src: Rel<Events>) = Sql.trino("FROM ${'$'}src() |> WHERE am<caret>")
         """.trimIndent())
         injected(host)
-        myFixture.completeBasic()
-        assertTrue("lookup=${myFixture.lookupElementStrings}; ${myFixture.editor.document.text}",
-            "amount" in myFixture.lookupElementStrings.orEmpty() || "WHERE amount" in myFixture.editor.document.text)
+        val variants = myFixture.completeBasic().orEmpty()
+        val amount = variants.single { it.lookupString == "amount" }
+        val presentation = com.intellij.codeInsight.lookup.LookupElementPresentation()
+        amount.renderElement(presentation)
+        assertEquals("brikk column (src)", presentation.tailText?.trim())
+        assertEquals("Double?", presentation.typeText)
+    }
+    fun testSameNamedCompletionColumnsKeepAliasAndNullability() {
+        val host = configure("""
+            interface LeftRow : Partial { val id: Long }
+            interface RightRow : Partial { val id: Long? }
+            @BrikkSql fun query(lefts: Rel<LeftRow>, rights: Rel<RightRow>) = Sql.trino("FROM ${'$'}lefts() AS a |> JOIN ${'$'}rights() AS b ON a.id=b.id |> SELECT i<caret>")
+        """.trimIndent())
+        injected(host)
+        val ids = myFixture.completeBasic().orEmpty().filter { it.lookupString == "id" }
+        assertEquals("Both source relations must remain selectable", 2, ids.size)
+        val presentations = ids.map { item ->
+            com.intellij.codeInsight.lookup.LookupElementPresentation().also { item.renderElement(it) }
+        }
+        assertEquals(setOf("brikk column (a)" to "Long", "brikk column (b)" to "Long?"),
+            presentations.map { it.tailText?.trim() to it.typeText }.toSet())
     }
     fun testInspectionViewCannotRunWithoutAConsole() {
         val file = injected(configure("@BrikkSql fun query(x: Int) = Sql.trino(\"FROM t |> WHERE id = \$x\")"))
