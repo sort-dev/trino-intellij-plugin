@@ -82,11 +82,19 @@ internal object PipesExecuteInterceptor {
             override fun getExecOption() = option
             override fun invokeImpl(e: AnActionEvent, console: JdbcConsole?, info: JdbcConsoleProvider.Info) {
                 if (console == null) return
-                if (console !== owner) throw SqlExecutionRefusal("The destination console changed during preparation")
-                snapshot.requireCurrent()
-                JdbcConsoleProvider.chooseStatements(info, "Nothing to run", true) { selected ->
+                try {
+                    if (console !== owner) throw SqlExecutionRefusal("The destination console changed during preparation")
                     snapshot.requireCurrent()
-                    executePipeModel(console, editor, selected, info.execOption)
+                    JdbcConsoleProvider.chooseStatements(info, "Nothing to run", true) { selected ->
+                        try {
+                            snapshot.requireCurrent()
+                            executePipeModel(console, editor, selected, info.execOption)
+                        } catch (e: SqlExecutionRefusal) {
+                            notify(console.project, e.message ?: "PIPE execution refused")
+                        }
+                    }
+                } catch (e: SqlExecutionRefusal) {
+                    notify(console.project, e.message ?: "PIPE execution refused")
                 }
             }
         }.actionPerformed(e)

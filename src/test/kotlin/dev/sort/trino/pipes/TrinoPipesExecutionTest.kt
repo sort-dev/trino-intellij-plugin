@@ -106,6 +106,62 @@ class TrinoPipesExecutionTest : BasePlatformTestCase() {
             assertFalse(f.notifications.isEmpty())
         }
     }
+    fun testEditDuringParameterPreparationNotifiesWithoutSubmitting() {
+        Fixture("FROM offline_rows |> WHERE id = :id |> SELECT id").use { f ->
+            ShowSqlParametersPanelAction.getStorage(f.console).putValue("id", "17")
+            var edited = false
+            f.recording.beforeSessionCall = { method ->
+                if (!edited && method == "getState") {
+                    edited = true
+                    com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(project) {
+                        f.editor.document.insertString(f.editor.document.textLength, " ")
+                    }
+                }
+            }
+            f.execute()
+            assertTrue("Preparation hook was not reached", edited)
+            assertEmpty(f.requests)
+            assertEmpty(f.previous)
+            assertFalse(f.notifications.isEmpty())
+        }
+    }
+    fun testEditDuringStockPreparationNotifiesWithoutSubmitting() {
+        Fixture("FROM offline_rows |> SELECT id").use { f ->
+            val connection = com.intellij.openapi.application.ApplicationManager.getApplication().messageBus.connect()
+            var edited = false
+            connection.subscribe(com.intellij.AppTopics.FILE_DOCUMENT_SYNC, object : com.intellij.openapi.fileEditor.FileDocumentManagerListener {
+                override fun beforeAllDocumentsSaving() {
+                    if (!edited) {
+                        edited = true
+                        com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(project) {
+                            f.editor.document.insertString(f.editor.document.textLength, " ")
+                        }
+                    }
+                }
+            })
+            try {
+                f.execute()
+                assertTrue(edited)
+                assertEmpty(f.requests)
+                assertEmpty(f.previous)
+                assertFalse(f.notifications.isEmpty())
+            } finally {
+                connection.disconnect()
+            }
+        }
+    }
+    fun testCancellationDuringPreparationPropagatesWithoutSubmitting() {
+        for (cancellation in listOf(com.intellij.openapi.progress.ProcessCanceledException(), java.util.concurrent.CancellationException())) {
+            Fixture("FROM offline_rows |> SELECT id").use { f ->
+                f.recording.beforeSessionCall = { method -> if (method == "getClientsWithFile") throw cancellation }
+                val thrown = kotlin.runCatching { f.execute() }.exceptionOrNull()
+                assertSame(cancellation, thrown)
+                assertEmpty(f.requests)
+                assertEmpty(f.previous)
+                assertEmpty(f.notifications)
+            }
+        }
+    }
     fun testMissingSubmissionClientNeverDelegatesRawSql() {
         Fixture("FROM offline_rows |> SELECT id").use { f ->
             f.console.session.detach(f.console)
