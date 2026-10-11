@@ -21,6 +21,3 @@ data class BrikkTrinoProfile(val binds: List<String>, val slots: List<String>, v
         }
     }
 }
-
-internal fun isBrikkInjectedSql(file: PsiFile): Boolean = BrikkTrinoProfile.forFile(file) != null &&
-    InjectedLanguageManager.getInstance(file.project).isInjectedFragment(file)

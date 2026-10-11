@@ -129,9 +129,8 @@ tasks {
             into("META-INF")
             filter { line: String -> line.replace("brikk-sql-intellij-support:0.1.1", "brikk-sql-intellij-support:$sqlIdeVersion") }
         }
-        // The shared Apache-2.0 library carries the complete license, identical to this product's license.
-        from({ zipTree(configurations.runtimeClasspath.get().single { it.name.startsWith("brikk-sql-intellij-support-") }) }) {
-            include("META-INF/LICENSE")
+        from("LICENSE") {
+            into("META-INF")
         }
     }
     processTestResources {
@@ -248,7 +247,10 @@ val verifyEmbeddedPipes by tasks.registering {
             }
             check(resources.size == 3)
             check(!Regex("<depends[^>]*>\\s*dev.sort.sql-transpiler-intellij-plugin").containsMatchIn(resources.getValue("META-INF/plugin.xml")))
-            check("brikk-sql-intellij-support" in resources.getValue("META-INF/THIRD_PARTY_NOTICES.md"))
+            check(resources.getValue("META-INF/LICENSE") == file("LICENSE").readText())
+            val notices = resources.getValue("META-INF/THIRD_PARTY_NOTICES.md")
+            check(listOf("brikk-sql-intellij-support", "ANTLR", "BSD-3-Clause", "Guava", "Apache License 2.0")
+                .all { it in notices })
         }
     }
 }
