@@ -88,7 +88,7 @@ the same 261-compiled classes. The generated-shape test runs on `test262` with
 
 SQL core/metadata 0.19.1 and Brikk Kotlin support 0.2.0 resolve from Maven Central.
 SQL IntelliJ support and test-support 0.1.2-SNAPSHOT resolve from Maven Local through
-the coordinate-scoped `sqlIdeVersion` filter. The ZIP embeds the runtime helpers,
+the shared convention's snapshot-only filter. The ZIP embeds the runtime helpers,
 never test-support, so installation requires no Maven setup.
 
 ## Built-in PIPE queries

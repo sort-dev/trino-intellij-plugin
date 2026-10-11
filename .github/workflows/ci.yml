@@ -23,11 +23,14 @@ jobs:
       - name: Set up Gradle (with caching)
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Test
+      - name: Test on 261
         run: ./gradlew test
 
+      - name: Test on 262 and 263 with Kotlin
+        run: ./gradlew test262 test263 -Ptest.kotlin=present
+
       - name: Build plugin
-        run: ./gradlew buildPlugin verifyEmbeddedPipes
+        run: ./gradlew buildPlugin verifyDistribution
 
       - name: Upload plugin zip
         uses: actions/upload-artifact@v4

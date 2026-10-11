@@ -27,16 +27,21 @@ class TrinoPipesIsolationTest : BasePlatformTestCase() {
         for (id in listOf("Console.Jdbc.Execute", "Console.Jdbc.Execute.2", "Console.Jdbc.Execute.3", "Console.Jdbc.Execute.Selection")) {
             var action = ActionManager.getInstance().getAction(id)!!
             val types = mutableListOf<String>()
+            val classes = mutableListOf<Class<*>>()
             val visited = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Any, Boolean>())
             while (visited.add(action)) {
                 types.add(action.javaClass.name)
+                classes.add(action.javaClass)
                 action = (action as? ActionWithDelegate<*>)?.delegate as? com.intellij.openapi.actionSystem.AnAction ?: break
             }
             assertTrue(types.toString(), types.any { it == "dev.brikk.house.sql.intellij.CooperativeExecuteAction" })
             assertTrue(types.toString(), types.last().startsWith("com.intellij.database.actions.RunQueryAction"))
             for (peer in listOf("doris", "duckdb")) {
-                if (PluginManagerCore.getPlugin(PluginId.getId("dev.sort.$peer-intellij-plugin")) != null)
-                    assertTrue(types.toString(), types.any { it.startsWith("dev.sort.$peer.pipes.") })
+                PluginManagerCore.getPlugin(PluginId.getId("dev.sort.$peer-intellij-plugin"))?.let { plugin ->
+                    val peerAction = plugin.pluginClassLoader!!.loadClass("dev.brikk.house.sql.intellij.CooperativeExecuteAction")
+                    assertSame(plugin.pluginClassLoader, peerAction.classLoader)
+                    assertTrue(types.toString(), classes.any { it === peerAction })
+                }
             }
         }
     }
