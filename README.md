@@ -81,6 +81,11 @@ Compile SDK: IDEA 2026.1.3, Kotlin 2.4.10. Plugin and helper classes target Java
 the bundled Trino 483 parser requires Java 25. Build/test with JDK 25 and use the
 supported IDE's bundled JBR 25. Kotlin integration is optional in DataGrip.
 
+`./gradlew test262 test263` runs the full offline suite on newer IDE runtimes using
+the same 261-compiled classes. The generated-shape test runs on `test262` with
+`-Ptest.ide262=/path/to/IDEA-262.9437.185` and
+`-Ptest.brikkCompilerPlugin=/path/to/the/reviewed/compiler-plugin.jar`.
+
 SQL core/metadata 0.19.1 and Brikk Kotlin support 0.2.0 resolve from Maven Central.
 SQL IntelliJ support and test-support 0.1.2-SNAPSHOT resolve from Maven Local through
 the coordinate-scoped `sqlIdeVersion` filter. The ZIP embeds the runtime helpers,

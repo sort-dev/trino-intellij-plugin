@@ -73,7 +73,7 @@ dependencies {
 
     intellijPlatform {
         // Same platform window as doris/duckdb: compiled against DataGrip 2026.1 (build 261),
-        // one artifact serving 261+262. Remote SDK so any clone/CI can build without an IDE.
+        // one artifact serving 261 through 263. Remote SDK so any clone/CI can build without an IDE.
         val localIde = providers.gradleProperty("trino.localIde")
         if (localIde.isPresent) local(localIde) else intellijIdea("2026.1.3")
         bundledPlugin("com.intellij.database")
@@ -96,7 +96,7 @@ intellijPlatform {
     pluginConfiguration {
         ideaVersion {
             sinceBuild = "261"
-            untilBuild = "262.*"
+            untilBuild = "263.*"
         }
     }
     pluginVerification {
@@ -186,6 +186,42 @@ kotlin {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
         // Use SDK interface defaults directly instead of generating spurious internal-API overrides.
         jvmDefault.set(org.jetbrains.kotlin.gradle.dsl.JvmDefaultMode.NO_COMPATIBILITY)
+    }
+}
+
+// Test the shipped 261 classes against each newer runtime, without recompiling against it.
+for ((generation, ideVersion) in listOf("262" to "262.8665.81", "263" to "263.5701.42")) {
+    intellijPlatformTesting.testIde.register("test$generation") {
+        type = org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdea
+        version = ideVersion
+        providers.gradleProperty("test.ide$generation").orNull?.let { localPath = file(it) }
+        testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
+        plugins {
+            bundledPlugins("com.intellij.database", "com.intellij.modules.json", "Git4Idea")
+            if (kotlinInstalled) bundledPlugins("com.intellij.java", "org.jetbrains.kotlin")
+        }
+        task {
+            useJUnit()
+            setExcludes(setOf("**/TrinoPipesIsolationTest.class"))
+            systemProperty("java.awt.headless", "true")
+            systemProperty("idea.load.plugins.id", buildList {
+                add("com.intellij.database")
+                add("dev.sort.trino-intellij-plugin")
+                add("Git4Idea")
+                if (kotlinInstalled) { add("org.jetbrains.kotlin"); add("com.intellij.java") }
+            }.joinToString(","))
+            systemProperty("corpus.dir", layout.projectDirectory.dir("src/test/resources/corpus").asFile.absolutePath)
+            if (!kotlinInstalled) exclude("**/brikk/**")
+            val compiler = providers.gradleProperty("test.brikkCompilerPlugin").orNull
+            if (generation == "262" && compiler != null) {
+                require(file(compiler).isFile) { "Missing compiler fixture JAR: $compiler" }
+                systemProperty("test.brikkCompilerPlugin", file(compiler).absolutePath)
+            } else exclude("**/BrikkCompilerRelationTest.class")
+            classpath = classpath.filter { entry ->
+                !(listOf("doris", "duckdb", "sql-transpiler").any { entry.path.contains("/$it-intellij-plugin/") } &&
+                    (entry.name.startsWith("brikk-") || entry.name.startsWith("kotlin-stdlib")))
+            }
+        }
     }
 }
 

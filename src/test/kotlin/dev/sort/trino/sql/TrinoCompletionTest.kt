@@ -2,7 +2,7 @@ package dev.sort.trino.sql
 
 import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.codeInsight.lookup.LookupElementPresentation
-import com.intellij.sql.dialects.SqlDialectMappings
+import dev.sort.trino.setSqlDialectMapping
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import icons.DatabaseIcons
 
@@ -18,7 +18,7 @@ import icons.DatabaseIcons
 class TrinoCompletionTest : BasePlatformTestCase() {
 
     private fun mapAndConfigure(text: String) {
-        SqlDialectMappings.getInstance(project).setMapping(null, TrinoSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, null, TrinoSqlDialect.INSTANCE)
         myFixture.configureByText("c.sql", text)
     }
 

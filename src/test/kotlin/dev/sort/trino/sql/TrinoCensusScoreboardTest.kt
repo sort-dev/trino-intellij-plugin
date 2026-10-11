@@ -2,7 +2,7 @@ package dev.sort.trino.sql
 
 import com.intellij.psi.PsiErrorElement
 import com.intellij.psi.util.PsiTreeUtil
-import com.intellij.sql.dialects.SqlDialectMappings
+import dev.sort.trino.setSqlDialectMapping
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import java.io.File
 
@@ -28,7 +28,7 @@ class TrinoCensusScoreboardTest : BasePlatformTestCase() {
 
     private fun verdict(sql: String): Verdict {
         val psi = myFixture.configureByText("c${counter++}.sql", sql)
-        SqlDialectMappings.getInstance(project).setMapping(psi.virtualFile, TrinoSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, psi.virtualFile, TrinoSqlDialect.INSTANCE)
         val file = com.intellij.psi.PsiManager.getInstance(project).findFile(psi.virtualFile)!!
         val errs = PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java)
         val first = errs.firstOrNull()
