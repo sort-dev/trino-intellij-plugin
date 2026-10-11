@@ -40,6 +40,10 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>0.3.5</b>
+        <ul>
+            <li>Fresh dogfood build with a distinct installed version for the next local test pass.</li>
+        </ul>
         <b>0.3.4</b>
         <ul>
             <li>Bundle the Maven Central 0.1.1 SQL IntelliJ support release for rich Brikk column completion.</li>

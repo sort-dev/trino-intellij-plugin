@@ -1,6 +1,16 @@
 # Trino PIPE and shared IntelliJ support verification
 
-## Latest local install build: 0.3.4
+## Latest local install build: 0.3.5
+
+Fresh dogfood identifier for the next local test pass. The packaged descriptor
+declares 0.3.5. Build and package audit passed; all 5,822 bundled class files
+match 0.3.4 byte for byte. This update changes version/change-note metadata.
+
+`/home/jayson/DEV/sortdev/trino-intellij-plugin/build/distributions/trino-intellij-plugin-0.3.5.zip`
+
+SHA-256: `0050c339f6ff329dc0ad8c8d919ac27159dbd095f3e8bf880a6c1b2c52dfed61`.
+
+## Local install build: 0.3.4
 
 This build contains the Maven Central SQL IntelliJ support 0.1.1 JAR, SQL
 core/metadata 0.19.1 and Kotlin IntelliJ support 0.2.0. No snapshot JARs are bundled.

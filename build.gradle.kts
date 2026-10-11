@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "dev.sort.trino"
-version = "0.3.4"
+version = "0.3.5"
 
 val brikkSqlVersion = providers.gradleProperty("brikkSqlVersion").getOrElse("0.19.1")
 val sqlIdeVersion = providers.gradleProperty("sqlIdeVersion").getOrElse("0.1.1")
