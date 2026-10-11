@@ -108,6 +108,7 @@
         <sql.resolveExtension implementation="dev.sort.trino.brikk.BrikkSqlResolveExtension"/>
         <sql.inspectionSuppressorDelegate implementation="dev.sort.trino.brikk.BrikkSqlInspectionSuppressor"/>
         <completion.contributor language="TrinoSQL" implementationClass="dev.sort.trino.pipes.TrinoPipesCompletionContributor" order="first"/>
+        <completion.contributor language="TrinoSQL" implementationClass="dev.sort.trino.brikk.BrikkSqlCompletionContributor"/>
         <annotator language="TrinoSQL" implementationClass="dev.sort.trino.pipes.TrinoPipeStageKeywordAnnotator"/>
         <annotator language="TrinoSQL" implementationClass="dev.sort.trino.brikk.BrikkSqlContractAnnotator"/>
         <gotoDeclarationHandler implementation="dev.sort.trino.brikk.BrikkSqlGotoDeclarationHandler"/>

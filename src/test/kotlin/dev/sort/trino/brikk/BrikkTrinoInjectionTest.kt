@@ -116,6 +116,29 @@ open class BrikkTrinoInjectionTest : BasePlatformTestCase() {
         assertEquals("brikk column (src)", presentation.tailText?.trim())
         assertEquals("Double?", presentation.typeText)
     }
+    fun testBrikkColumnCompletionWithProjectPipesOff() {
+        assertFalse(project.service<TrinoPipesSettings>().enabled)
+        assertBrikkColumnsOffered()
+    }
+    fun testBrikkColumnCompletionWithPipesVetoed() {
+        val old = System.getProperty("trino.pipes")
+        try {
+            System.setProperty("trino.pipes", "false")
+            assertBrikkColumnsOffered()
+        } finally {
+            if (old == null) System.clearProperty("trino.pipes") else System.setProperty("trino.pipes", old)
+        }
+    }
+    private fun assertBrikkColumnsOffered() {
+        val host = configure("""
+            interface Events : Partial { val event_id: Long; val event_time: String }
+            @BrikkSql fun query(src: Rel<Events>) = Sql.trino("SELECT event_<caret> FROM ${'$'}src()")
+        """.trimIndent())
+        injected(host)
+        val offered = myFixture.completeBasic().orEmpty().map { it.lookupString }.toSet()
+        assertTrue(offered.toString(), "event_id" in offered)
+        assertTrue(offered.toString(), "event_time" in offered)
+    }
     fun testSameNamedCompletionColumnsKeepAliasAndNullability() {
         val host = configure("""
             interface LeftRow : Partial { val id: Long }

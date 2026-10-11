@@ -13,9 +13,6 @@ import dev.brikk.house.sql.parser.PipeStageSplitter
 import dev.brikk.house.sql.parser.TokenType
 import dev.brikk.house.sql.shape.ShapeCatalog
 import dev.brikk.house.sql.shape.SqlFragment
-import dev.brikk.house.sql.intellij.SqlColumnCompletion
-import dev.brikk.house.intellij.ColumnNullability
-import dev.brikk.house.intellij.NavigationKind
 import dev.sort.trino.brikk.*
 
 class TrinoPipesCompletionContributor : CompletionContributor() {
@@ -56,24 +53,7 @@ class TrinoPipesCompletionContributor : CompletionContributor() {
                     return
                 }
             }
-            if (brikk) {
-                val analysis = BrikkSqlScopes.analyze(text.substring(0, offset) + "__brikk_caret" + text.substring(offset), BrikkTrinoProfile.contracts(file))
-                val ref = analysis?.at(offset)
-                if (ref?.kind == BrikkSqlScopes.Kind.COLUMN) {
-                    val rows = if (ref.qualifier.isBlank()) ref.scope.relations else listOfNotNull(ref.scope.relation(ref.qualifier))
-                    rows.filter { it.managed }.flatMap { row -> row.columns.map { row to it } }
-                        .distinctBy { it.first.alias to it.second.name }.forEach { (row, column) ->
-                        val nullable = when (column.nullability) {
-                            ColumnNullability.NON_NULL -> false
-                            ColumnNullability.NULLABLE -> true
-                            ColumnNullability.UNKNOWN -> null
-                        }
-                        val origin = if (column.navigation?.kind == NavigationKind.RELATION_FALLBACK) "relation contract" else "brikk column"
-                        result.caseInsensitive().addElement(SqlColumnCompletion.create(
-                            column.name, column.kotlinClassId?.substringAfterLast('.'), nullable, row.alias, origin))
-                    }
-                }
-            } else if (boundary >= 0) {
+            if (!brikk && boundary >= 0) {
                 val input = before.substring(0, boundary).trim()
                 runPipeCatching { SqlFragment(input, "trino").outputShape(ShapeCatalog.EMPTY).names() }.getOrNull().orEmpty()
                     .filter { it != "*" && !it.matches(Regex("_col_\\d+")) }.distinct().forEach {
