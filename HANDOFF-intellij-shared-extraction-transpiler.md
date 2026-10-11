@@ -8,9 +8,11 @@ SQL core/metadata `0.19.0`. See [the release report](REVIEW-trino-pipes-brikk.md
 for actual publication status and verification. Source worktree:
 `/home/jayson/DEV/brikk/brikk-sql-worktrees/intellij-support`.
 
-The source is also on brikk-sql main through `b865a84`. **Verify/oracle were not
-published as 0.19.0.** Keep their independently chosen versions; do not use one
-version property for every artifact when adopting the new core APIs.
+The source is also on brikk-sql main. **Verify and oracle are now available as
+0.19.0**, following the initial scoped core/helper release. Oracle exports verify
+0.19.0. [Release evidence](https://github.com/brikk/brikk-sql/actions/runs/38107790876).
+The SQL IntelliJ helper remains independently versioned at 0.1.0. Retain explicit
+core/verifier version choices while completing your native-verification review.
 
 ## APIs useful to your plan
 

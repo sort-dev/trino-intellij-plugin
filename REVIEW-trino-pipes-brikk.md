@@ -50,6 +50,9 @@ verification are complete. Trino implementation commit: `7c9b968`.
   pushed to brikk-sql main. The `intellij-support` worktree remains available.
 - Remote release branch: `publish/intellij-support-0.1.0` in `brikk/brikk-sql`.
 - Published versions: SQL core/metadata 0.19.0; SQL IntelliJ support 0.1.0.
+- Follow-up: verify/oracle 0.19.0 are now published too, through
+  https://github.com/brikk/brikk-sql/actions/runs/38107790876. This completes their
+  version alignment; Trino's artifact and dependencies are unchanged.
 - Successful release gate: https://github.com/brikk/brikk-sql/actions/runs/38101272963
 - Direct Central downloads passed checksum and publication audits. All 27 helper,
   2,401 core and 40 metadata classes match the tested snapshots byte for byte.
