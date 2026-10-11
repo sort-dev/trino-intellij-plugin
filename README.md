@@ -2,11 +2,10 @@
 
 A full featured **Trino SQL dialect** for DataGrip and IntelliJ-family IDEs — validated by **Trino's own
 parser** (io.trino:trino-parser, bundled, currently version **483**), so editor errors and reporting
-are correct and accurate.
+are correct.
 
 Part of our SQL-tooling family alongside:
 
-* [**Trino SQL Dialect** for DataGrip & Jetbrains IDE's](https://plugins.jetbrains.com/plugin/33124-sql-dialect-for-trino)
 * [**Trino - Doris connector** allowing Trino to access your Doris data](https://github.com/brikk/trino-doris-connector)
 * [**Trino native DuckLake Catalog** with full Read/Write support](https://github.com/brikk/ducklake-integrations/tree/main/jvm/trino-ducklake)
 * [**Trino Duckbridge** - remote access to DuckDB via Quack](https://github.com/brikk/duckbridge)
@@ -48,7 +47,7 @@ playbook possible: the editor's error authority IS the engine's grammar, bundled
 - **A working schema tree**: connectors appear as catalogs (tpch, memory, ...), via the generic
   JDBC introspector — deliberately forced for this dbms (Trino reports its release number as the
   JDBC major version, which would otherwise select PostgreSQL's introspector against a server
-  with no pg_catalog; see REPORT-truth-tree.md).
+  with no pg_catalog).
 - **Completion that fills the tree in as you type**: catalogs list on connect; drilling into a
   catalog or schema (`hive.`, `hive.web.`) introspects just that namespace, one level at a time —
   so a `hive`/`iceberg` catalog with thousands of tables is never bulk-loaded.
