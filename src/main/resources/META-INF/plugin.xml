@@ -148,6 +148,8 @@
              everything we don't override. The modelFacade completes the facade/dialect/introspector
              agreement (doris ClassCast lesson) — all three sit on the PG family. -->
         <extensionFallback dbms="TRINO_BRIKK" fallbackDbms="POSTGRES"/>
+        <explainPlanProvider dbms="TRINO_BRIKK" implementationClass="dev.sort.trino.TrinoExplainPlanProvider"/>
+        <dialect dbms="TRINO_BRIKK" implementationClass="dev.sort.trino.TrinoDatabaseDialect"/>
         <modelFacade dbms="TRINO_BRIKK" implementationClass="dev.sort.trino.TrinoModelFacade"/>
         <!-- THE LANDMINE FIX (truth battery): dbms-exact registration shadows the POSTGRES
              fallback on the introspector EP. Trino reports major 483, which CLEARS the PG native
