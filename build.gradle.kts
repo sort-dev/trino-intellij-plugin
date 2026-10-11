@@ -122,6 +122,38 @@ intellijPlatform {
     }
 }
 
+fun Test.configureTrinoTests(includePeers: Boolean, includeCompiler: Boolean, isolation: Boolean = false) {
+    useJUnit()
+    systemProperty("java.awt.headless", "true")
+    systemProperty("idea.load.plugins.id", buildList {
+        add("com.intellij.database")
+        add("dev.sort.trino-intellij-plugin")
+        add("Git4Idea")
+        if (kotlinInstalled) { add("org.jetbrains.kotlin"); add("com.intellij.java") }
+        if (includePeers) {
+            if (companionInstalled) add("dev.sort.sql-transpiler-intellij-plugin")
+            siblingZips.forEach { (name, _) -> add("dev.sort.$name-intellij-plugin") }
+        }
+    }.joinToString(","))
+    if (!kotlinInstalled) exclude("**/brikk/**")
+    if (!isolation) exclude("**/TrinoPipesIsolationTest.class")
+    val compiler = providers.gradleProperty("test.brikkCompilerPlugin").orNull
+    if (includeCompiler && compiler != null) {
+        require(file(compiler).isFile) { "Missing compiler fixture JAR: $compiler" }
+        systemProperty("test.brikkCompilerPlugin", file(compiler).absolutePath)
+    } else exclude("**/BrikkCompilerRelationTest.class")
+    systemProperty("corpus.dir", layout.projectDirectory.dir("src/test/resources/corpus").asFile.absolutePath)
+    if (includePeers) {
+        val liveUrl = providers.systemProperty("trino.live.url").orElse(providers.gradleProperty("trino.live.url")).orNull
+        if (liveUrl != null) systemProperty("trino.live.url", liveUrl)
+    }
+    // The flattened fixture must use our own libraries. Production products own isolated copies.
+    classpath = classpath.filter { entry ->
+        !(listOf("doris", "duckdb", "sql-transpiler").any { entry.path.contains("/$it-intellij-plugin/") } &&
+            (entry.name.startsWith("brikk-") || entry.name.startsWith("kotlin-stdlib")))
+    }
+}
+
 tasks {
     named<JavaExec>("verifyPlugin") {
         // Other dogfood agents also run the verifier; never share its extracted-plugin cache.
@@ -151,33 +183,8 @@ tasks {
     }
 
     named<Test>("test") {
-        useJUnit()
-        // Load our plugin (and the database plugin it depends on) in the light test fixture.
-        systemProperty("java.awt.headless", "true")
-        systemProperty("idea.load.plugins.id", buildList {
-            add("com.intellij.database")
-            add("dev.sort.trino-intellij-plugin")
-            add("Git4Idea")
-            if (kotlinInstalled) { add("org.jetbrains.kotlin"); add("com.intellij.java") }
-            if (companionInstalled) add("dev.sort.sql-transpiler-intellij-plugin")
-            siblingZips.forEach { (name, _) -> add("dev.sort.$name-intellij-plugin") }
-        }.joinToString(","))
-        if (!kotlinInstalled) exclude("**/brikk/**")
-        if (providers.gradleProperty("test.pluginIsolation").orNull != "true") exclude("**/TrinoPipesIsolationTest.class")
-        providers.gradleProperty("test.brikkCompilerPlugin").orNull?.let {
-            require(file(it).isFile) { "Missing compiler fixture JAR: $it" }
-            systemProperty("test.brikkCompilerPlugin", file(it).absolutePath)
-        } ?: exclude("**/BrikkCompilerRelationTest.class")
-        // Trino syntax corpus for the substrate scoreboard (census lane fills this).
-        systemProperty("corpus.dir", layout.projectDirectory.dir("src/test/resources/corpus").asFile.absolutePath)
-        // Live Trino suites (container or real cluster) are gated on this property; forward it
-        // from the Gradle invocation (-Dtrino.live.url=... or -Ptrino.live.url=...) into the
-        // forked test JVM. Absent => those tests JUnit-Assume out, keeping the committed run
-        // offline-deterministic.
-        val trinoLiveUrl = providers.systemProperty("trino.live.url")
-            .orElse(providers.gradleProperty("trino.live.url"))
-            .orNull
-        if (trinoLiveUrl != null) systemProperty("trino.live.url", trinoLiveUrl)
+        configureTrinoTests(includePeers = true, includeCompiler = true,
+            isolation = providers.gradleProperty("test.pluginIsolation").orNull == "true")
     }
 }
 
@@ -201,37 +208,11 @@ for ((generation, ideVersion) in listOf("262" to "262.8665.81", "263" to "263.57
             if (kotlinInstalled) bundledPlugins("com.intellij.java", "org.jetbrains.kotlin")
         }
         task {
-            useJUnit()
-            setExcludes(setOf("**/TrinoPipesIsolationTest.class"))
-            systemProperty("java.awt.headless", "true")
-            systemProperty("idea.load.plugins.id", buildList {
-                add("com.intellij.database")
-                add("dev.sort.trino-intellij-plugin")
-                add("Git4Idea")
-                if (kotlinInstalled) { add("org.jetbrains.kotlin"); add("com.intellij.java") }
-            }.joinToString(","))
-            systemProperty("corpus.dir", layout.projectDirectory.dir("src/test/resources/corpus").asFile.absolutePath)
-            if (!kotlinInstalled) exclude("**/brikk/**")
-            val compiler = providers.gradleProperty("test.brikkCompilerPlugin").orNull
-            if (generation == "262" && compiler != null) {
-                require(file(compiler).isFile) { "Missing compiler fixture JAR: $compiler" }
-                systemProperty("test.brikkCompilerPlugin", file(compiler).absolutePath)
-            } else exclude("**/BrikkCompilerRelationTest.class")
-            classpath = classpath.filter { entry ->
-                !(listOf("doris", "duckdb", "sql-transpiler").any { entry.path.contains("/$it-intellij-plugin/") } &&
-                    (entry.name.startsWith("brikk-") || entry.name.startsWith("kotlin-stdlib")))
-            }
+            configureTrinoTests(includePeers = false, includeCompiler = generation == "262")
         }
     }
 }
 
-// The flattened fixture must use our own libraries. Production products own isolated copies.
-tasks.named<Test>("test") {
-    classpath = classpath.filter { entry ->
-        !(listOf("doris", "duckdb", "sql-transpiler").any { entry.path.contains("/$it-intellij-plugin/") } &&
-            (entry.name.startsWith("brikk-") || entry.name.startsWith("kotlin-stdlib")))
-    }
-}
 if (providers.gradleProperty("test.pluginIsolation").orNull == "true") {
     val outputs = sourceSets.main.get().output.files.map { it.absoluteFile }.toSet() +
         layout.buildDirectory.dir("instrumented/instrumentCode").get().asFile.absoluteFile

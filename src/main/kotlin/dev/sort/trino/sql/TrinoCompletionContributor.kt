@@ -11,6 +11,7 @@ import com.intellij.database.model.ObjectKind
 import com.intellij.database.psi.DbPsiFacade
 import com.intellij.patterns.PlatformPatterns
 import com.intellij.util.ProcessingContext
+import dev.brikk.house.sql.intellij.recoverEditorOperation
 import dev.sort.trino.catalog.TrinoAutoIntrospect
 import dev.sort.trino.catalog.TrinoDataSourceResolver
 import dev.sort.trino.catalog.TrinoNamespacePath
@@ -64,7 +65,7 @@ class TrinoCompletionContributor : CompletionContributor() {
         ) {
             val file = parameters.originalFile
             if (!file.language.isKindOf(TrinoSqlDialect.INSTANCE)) return
-            dev.brikk.house.sql.intellij.recoverEditorOperation {
+            recoverEditorOperation {
                 val text = file.text
                 val offset = parameters.offset.coerceAtMost(text.length)
                 val tail = text.substring((offset - 200).coerceAtLeast(0), offset)

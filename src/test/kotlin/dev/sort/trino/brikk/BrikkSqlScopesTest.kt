@@ -59,4 +59,14 @@ class BrikkSqlScopesTest {
             "FROM src() |> EXTEND missing AS copied |> WHERE copied > 0", mapOf("src" to shape("id"))))
         assertFalse(analysis.references.last { it.name == "copied" }.scope.candidates("copied").single().first.available)
     }
+    @Test fun parenthesizedSelectPreservesColumnNameAndType() {
+        val analysis = assertNotNull(BrikkSqlScopes.analyze(
+            "SELECT chosen.id FROM (SELECT (id) FROM src()) AS chosen", mapOf("src" to shape("id"))))
+        val scope = analysis.references.single { it.name == "id" && it.qualifier == "chosen" }.scope
+        val candidate = scope.candidates("id", "chosen").single()
+        assertEquals("id", candidate.second.name)
+        assertEquals("kotlin.Long", candidate.second.kotlinClassId)
+        assertEquals(SqlFamily.WIDE_INTEGER, candidate.second.sqlFamily)
+        assertEquals(ColumnNullability.NON_NULL, candidate.second.nullability)
+    }
 }

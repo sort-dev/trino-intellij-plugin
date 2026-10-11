@@ -97,7 +97,7 @@ object TrinoAutoIntrospect {
     ): Boolean {
         val key = keyFor(local.uniqueId, level, catalog, schema)
         if (!claimOnce(key)) return false
-        return dev.brikk.house.sql.intellij.recoverEditorOperation {
+        return recoverEditorOperation {
             val addition = scopeFor(level, catalog, schema)
             val current: TreePattern? = local.introspectionScope
             local.introspectionScope =

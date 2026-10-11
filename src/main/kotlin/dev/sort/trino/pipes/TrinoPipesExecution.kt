@@ -11,6 +11,7 @@ import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.*
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.fileEditor.TextEditor
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.text.StringUtil
 import dev.brikk.house.sql.intellij.*
 import dev.brikk.house.sql.shape.ParamStyle
@@ -82,19 +83,15 @@ internal object PipesExecuteInterceptor {
             override fun getExecOption() = option
             override fun invokeImpl(e: AnActionEvent, console: JdbcConsole?, info: JdbcConsoleProvider.Info) {
                 if (console == null) return
-                try {
+                notifyExecutionRefusal(console.project) {
                     if (console !== owner) throw SqlExecutionRefusal("The destination console changed during preparation")
                     snapshot.requireCurrent()
                     JdbcConsoleProvider.chooseStatements(info, "Nothing to run", true) { selected ->
-                        try {
+                        notifyExecutionRefusal(console.project) {
                             snapshot.requireCurrent()
                             executePipeModel(console, editor, selected, info.execOption)
-                        } catch (e: SqlExecutionRefusal) {
-                            notify(console.project, e.message ?: "PIPE execution refused")
                         }
                     }
-                } catch (e: SqlExecutionRefusal) {
-                    notify(console.project, e.message ?: "PIPE execution refused")
                 }
             }
         }.actionPerformed(e)
@@ -138,13 +135,13 @@ internal class TrinoExecutionAdapter(private val firstStage: Boolean = false) : 
 }
 
 internal fun <E> executePipeModel(console: JdbcConsole, editor: Editor, selected: ScriptModel<E>,
-                                option: DatabaseSettings.ExecOption, allowFirstQueryStage: Boolean = false) {
+                                option: DatabaseSettings.ExecOption, allowFirstQueryStage: Boolean = false) = notifyExecutionRefusal(console.project) {
     try {
         val session = console.session
         val target = console.dataSource
         val url = target?.url
         val model = TranslatingScriptModel(selected, editor, TrinoExecutionAdapter(allowFirstQueryStage))
-        if (!console.beforeExecuteQueries(model)) return
+        if (!console.beforeExecuteQueries(model)) return@notifyExecutionRefusal
         model.finalizeTranslations(console.pStorage)
         if (!console.isValid || console.session !== session || console.dataSource !== target || target?.url != url ||
             session.connectionPoint.dbms !== TrinoDbms.TRINO_BRIKK)
@@ -152,10 +149,16 @@ internal fun <E> executePipeModel(console: JdbcConsole, editor: Editor, selected
         if (!TrinoPipes.isEnabled(console.project)) throw SqlExecutionRefusal("PIPE was disabled during preparation")
         if (console.session.clientsWithFile.isEmpty()) throw SqlExecutionRefusal("No attached console client")
         console.executeQueries(editor, model, option)
-    } catch (e: SqlExecutionRefusal) {
-        notify(console.project, e.message ?: "PIPE execution refused")
     } catch (e: TranslateException) {
         notify(console.project, e.message ?: "Parameter substitution failed")
+    }
+}
+
+private inline fun notifyExecutionRefusal(project: Project, operation: () -> Unit) {
+    try {
+        operation()
+    } catch (refusal: SqlExecutionRefusal) {
+        notify(project, refusal.message ?: "PIPE execution refused")
     }
 }
 

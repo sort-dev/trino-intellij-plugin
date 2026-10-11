@@ -3,6 +3,7 @@ package dev.sort.trino
 import com.intellij.database.Dbms
 import com.intellij.database.dataSource.DatabaseConnectionCore
 import com.intellij.database.dialects.base.TypeHelper
+import com.intellij.database.dialects.postgres.PgDialect
 import com.intellij.database.dialects.postgresbase.PgDialectBase
 import com.intellij.database.model.ObjectKind
 import com.intellij.database.model.DasObject
@@ -12,6 +13,8 @@ import com.intellij.database.util.ObjectPath
 import com.intellij.database.util.SearchPath
 
 class TrinoDatabaseDialect : PgDialectBase(TypeHelper.PgTypeHelper()) {
+    private val postgres = PgDialect(TrinoDbms.TRINO_BRIKK)
+
     override fun getDbms(): Dbms = TrinoDbms.TRINO_BRIKK
 
     override fun getDisplayName(): String = dbms.displayName
@@ -21,8 +24,7 @@ class TrinoDatabaseDialect : PgDialectBase(TypeHelper.PgTypeHelper()) {
         identifier: String,
         definition: DasObject?,
         qualifier: DasObject,
-    ): DdlBuilder = com.intellij.database.dialects.postgres.PgDialect(dbms)
-        .qualifiedIdentifier(builder, identifier, definition, qualifier)
+    ): DdlBuilder = postgres.qualifiedIdentifier(builder, identifier, definition, qualifier)
 
     override fun sqlSetSearchPath(path: SearchPath): String? {
         val schema = path.current
