@@ -1,5 +1,20 @@
 # Trino PIPE and shared IntelliJ support verification
 
+## Latest local install build: 0.3.1
+
+Version bumped from 0.3.0 to 0.3.1 so the installed build is identifiable in Plugin
+Settings. `buildPlugin verifyEmbeddedPipes` passed; the ZIP descriptor declares
+0.3.1. All 5,820 bundled class files are byte-identical to the verified 0.3.0 build
+documented below. This update changes version/change-note metadata.
+
+Installable copy:
+`/home/jayson/DEV/sortdev/trino-intellij-plugin/build/distributions/trino-intellij-plugin-0.3.1.zip`
+
+SHA-256: `650ecaab29803738f1ccdab891d37e0881b37678ef498de0a19c5e77634a1b2e`.
+The stable `trino-intellij-plugin.zip` path contains the same 0.3.1 artifact.
+
+## Implementation verification: 0.3.0
+
 Completed 2026-10-10 local date. SQL library publication and Trino's local consumer
 verification are complete. Trino implementation commit: `7c9b968`.
 

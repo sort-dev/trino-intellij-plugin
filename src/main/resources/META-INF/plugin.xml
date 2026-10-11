@@ -40,6 +40,10 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>0.3.1</b>
+        <ul>
+            <li>New local build version for identifying the current built-in PIPE and Brikk Kotlin integration during testing.</li>
+        </ul>
         <b>0.3.0</b>
         <ul>
             <li>Built-in, project-scoped PIPE queries with cooperative Execute handling,
