@@ -6,14 +6,14 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.brikk.house.sql.intellij.completion.SqlLookupKind
 import dev.brikk.house.sql.metadata.FunctionKind
 import dev.brikk.house.sql.metadata.FunctionPresentation
-import dev.sort.trino.setSqlDialectMapping
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 import icons.DatabaseIcons
 import javax.swing.Icon
 
 class TrinoCompletionTest : BasePlatformTestCase() {
     override fun setUp() {
         super.setUp()
-        setSqlDialectMapping(project, null, TrinoSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, null, TrinoSqlDialect)
     }
 
     override fun tearDown() {

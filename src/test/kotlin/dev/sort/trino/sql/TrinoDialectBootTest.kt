@@ -2,10 +2,14 @@ package dev.sort.trino.sql
 
 import com.intellij.psi.PsiErrorElement
 import com.intellij.psi.util.PsiTreeUtil
-import dev.sort.trino.setSqlDialectMapping
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 import com.intellij.sql.psi.SqlStatement
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.sort.trino.TrinoDbms
+import dev.brikk.house.sql.intellij.dialect.SqlDialectRegistry
+import com.intellij.sql.dialects.postgres.PgDialect
+import com.intellij.sql.dialects.postgres.PgLexer
+import dev.brikk.house.sql.intellij.testing.lexAll
 
 /** The seed contract: the dialect registers, maps, and parses everyday Trino SQL with zero errors. */
 class TrinoDialectBootTest : BasePlatformTestCase() {
@@ -14,14 +18,27 @@ class TrinoDialectBootTest : BasePlatformTestCase() {
 
     private fun parse(sql: String): com.intellij.psi.PsiFile {
         val psi = myFixture.configureByText("b${counter++}.sql", sql)
-        setSqlDialectMapping(project, psi.virtualFile, TrinoSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, psi.virtualFile, TrinoSqlDialect)
         return com.intellij.psi.PsiManager.getInstance(project).findFile(psi.virtualFile)!!
     }
 
     fun testDialectRegistersWithOwnDbms() {
         assertEquals("TRINO_BRIKK", TrinoDbms.TRINO_BRIKK.name)
-        assertEquals(TrinoDbms.TRINO_BRIKK, TrinoSqlDialect.INSTANCE.dbms)
-        assertEquals("TrinoSQL", TrinoSqlDialect.INSTANCE.id)
+        assertEquals(TrinoDbms.TRINO_BRIKK, TrinoSqlDialect.dbms)
+        assertEquals("TrinoSQL", TrinoSqlDialect.id)
+    }
+
+    fun testSharedDialectRegistryAndPostgresKnowledge() {
+        val entry = SqlDialectRegistry.forLanguage(TrinoSqlDialect)!!
+        assertEquals("trino", entry.coreDialect)
+        assertEquals(entry, SqlDialectRegistry.forDbms(TrinoDbms.TRINO_BRIKK))
+        assertEquals(entry, SqlDialectRegistry.forMarker("TRINO"))
+        assertNull(SqlDialectRegistry.forLanguageId("GenericSQL"))
+        assertEquals(PgDialect.INSTANCE.systemVariables, TrinoSqlDialect.systemVariables)
+        val plus = PgLexer().lexAll("+").single().type
+        assertEquals(PgDialect.INSTANCE.isOperatorSupported(plus), TrinoSqlDialect.isOperatorSupported(plus))
+        val f = parse("SELECT CAST(1 AS bigint), EXTRACT(YEAR FROM DATE '2026-01-01'), CURRENT_TIMESTAMP;")
+        assertEmpty(PsiTreeUtil.findChildrenOfType(f, PsiErrorElement::class.java))
     }
 
     fun testEverydayTrinoParsesClean() {
@@ -36,7 +53,7 @@ class TrinoDialectBootTest : BasePlatformTestCase() {
             FETCH FIRST 10 ROWS ONLY;
             """.trimIndent(),
         )
-        assertTrue(file.language.isKindOf(TrinoSqlDialect.INSTANCE))
+        assertTrue(file.language.isKindOf(TrinoSqlDialect))
         val errors = PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java)
         assertTrue("everyday Trino must parse clean, got: ${errors.map { it.errorDescription }}", errors.isEmpty())
     }

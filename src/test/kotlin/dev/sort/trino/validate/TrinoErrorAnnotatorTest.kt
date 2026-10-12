@@ -4,7 +4,7 @@ import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
-import dev.sort.trino.setSqlDialectMapping
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.sort.trino.sql.TrinoSqlDialect
 
@@ -21,7 +21,7 @@ class TrinoErrorAnnotatorTest : BasePlatformTestCase() {
 
     private fun trinoFile(sql: String): PsiFile {
         val psi = myFixture.configureByText("t${counter++}.sql", sql)
-        setSqlDialectMapping(project, psi.virtualFile, TrinoSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, psi.virtualFile, TrinoSqlDialect)
         return PsiManager.getInstance(project).findFile(psi.virtualFile)!!
     }
 
@@ -116,7 +116,7 @@ class TrinoErrorAnnotatorTest : BasePlatformTestCase() {
         // Exercises the full highlighting path (registration + apply) when the pass schedules;
         // valid Trino must never surface a "Trino:" error either way.
         val psi = myFixture.configureByText("clean.sql", "SELECT id, count(*) FROM hive.web.users GROUP BY id;")
-        setSqlDialectMapping(project, psi.virtualFile, TrinoSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, psi.virtualFile, TrinoSqlDialect)
         val trinoErrors = myFixture.doHighlighting()
             .filter { it.severity == HighlightSeverity.ERROR && it.description?.startsWith("Trino:") == true }
         assertTrue("valid Trino must not raise engine errors, got: ${trinoErrors.map { it.description }}", trinoErrors.isEmpty())

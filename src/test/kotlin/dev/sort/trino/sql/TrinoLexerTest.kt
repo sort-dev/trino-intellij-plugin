@@ -9,7 +9,7 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.brikk.house.sql.intellij.testing.RecordingConsole
 import dev.brikk.house.sql.intellij.testing.assertRestartsMatchFullLex
 import dev.brikk.house.sql.intellij.testing.lexAll
-import dev.sort.trino.setSqlDialectMapping
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 
 class TrinoLexerTest : BasePlatformTestCase() {
     fun testCommentsDoNotReplacePreviousToken() {
@@ -81,7 +81,7 @@ class TrinoLexerTest : BasePlatformTestCase() {
         try {
             val file = myFixture.configureByText("masked-console.sql",
                 "SELECT TRY_CAST(1 AS bigint) FROM t FOR VERSION AS OF 1 WHERE id = \${id} AND status = '\${status}' LIMIT \${rows}")
-            setSqlDialectMapping(project, file.virtualFile, TrinoSqlDialect.INSTANCE)
+            setSqlDialectMapping(project, file.virtualFile, TrinoSqlDialect)
             RecordingConsole(project, file.virtualFile, "h2.unified").use { recording ->
                 val storage = ShowSqlParametersPanelAction.getStorage(recording.console)
                 storage.putValue("id", "17")

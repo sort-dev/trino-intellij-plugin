@@ -12,7 +12,7 @@ import dev.sort.trino.sql.TrinoSqlDialect
 
 @Service(Service.Level.PROJECT)
 @State(name = "TrinoPipesSettings", storages = [Storage(StoragePathMacros.WORKSPACE_FILE)])
-class TrinoPipesSettings(project: Project) : ToggleSettings(project, TrinoSqlDialect.INSTANCE)
+class TrinoPipesSettings(project: Project) : ToggleSettings(project, TrinoSqlDialect)
 
 class TrinoPipesConfigurable(private val project: Project) : ToggleConfigurable(
     "dev.sort.trino.pipes", TrinoPipeDialect.label, "Enable PIPE queries in this project", vetoProperty = TrinoPipeDialect.vetoProperty,

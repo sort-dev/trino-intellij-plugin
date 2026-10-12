@@ -17,7 +17,7 @@ object TrinoPipeDialect : PipeDialect {
     override val dialect = "trino"
     override val label = "Trino PIPE"
     override val vetoProperty = "trino.pipes"
-    override val language get() = TrinoSqlDialect.INSTANCE
+    override val language get() = TrinoSqlDialect
     override fun isProjectEnabled(project: Project) = project.service<TrinoPipesSettings>().enabled
     override fun enablesEditing(file: PsiFile) = BrikkTrinoProfile.forFile(file) != null
     override fun isInspectionHost(file: PsiFile) = enablesEditing(file)

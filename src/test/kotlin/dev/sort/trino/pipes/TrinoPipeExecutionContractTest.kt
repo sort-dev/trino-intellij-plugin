@@ -4,7 +4,7 @@ import com.intellij.openapi.components.service
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.brikk.house.sql.intellij.testing.PipeExecutionContract
-import dev.sort.trino.setSqlDialectMapping
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 import dev.sort.trino.sql.TrinoSqlDialect
 import java.util.UUID
 
@@ -37,7 +37,7 @@ class TrinoPipeExecutionContractTest : BasePlatformTestCase() {
 
     private fun contract() = PipeExecutionContract(TrinoPipeDialect, "trino-brikk", "mysql", { settings.enabled = it }) { sql ->
         val file = myFixture.configureByText("pipe-contract-${UUID.randomUUID()}.sql", sql)
-        setSqlDialectMapping(project, file.virtualFile, TrinoSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, file.virtualFile, TrinoSqlDialect)
         myFixture.editor
     }
 

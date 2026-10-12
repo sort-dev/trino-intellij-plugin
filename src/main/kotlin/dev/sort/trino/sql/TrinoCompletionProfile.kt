@@ -9,7 +9,7 @@ import dev.brikk.house.sql.metadata.TRINO_METADATA
 import icons.DatabaseIcons
 
 object TrinoCompletionProfile : SqlCompletionProfile {
-    override val language get() = TrinoSqlDialect.INSTANCE
+    override val language get() = TrinoSqlDialect
     override val metadata = TRINO_METADATA
     override val keywords = KeywordScope.RESERVED
     override val styles = SqlLookupStyles.DEFAULT.let { defaults ->

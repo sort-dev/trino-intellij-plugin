@@ -16,8 +16,26 @@ class TrinoPipesIsolationTest : BasePlatformTestCase() {
         val fragment = loader.loadClass("dev.brikk.house.sql.shape.SqlFragment")
         for (name in listOf(fragment.name, "dev.brikk.house.sql.intellij.CooperativeExecuteAction", "dev.brikk.house.intellij.ColumnContract",
             "dev.brikk.house.sql.intellij.pipe.PipeDialect", "dev.brikk.house.sql.intellij.pipe.PipeExecuteInterceptor",
-            "dev.brikk.house.sql.intellij.completion.SqlCompletionContributor", "dev.brikk.house.sql.metadata.DialectMetadata"))
+            "dev.brikk.house.sql.intellij.completion.SqlCompletionContributor", "dev.brikk.house.sql.metadata.DialectMetadata",
+            "dev.brikk.house.sql.intellij.lexer.MaskingSqlLexer", "dev.brikk.house.sql.intellij.parser.LenientSqlParsingKt",
+            "dev.brikk.house.sql.intellij.pipe.PipeStatementGate", "dev.brikk.house.sql.intellij.editor.MaskedSpanRecolorAnnotator",
+            "dev.brikk.house.sql.intellij.editor.SubstrateErrorFilter", "dev.brikk.house.sql.intellij.editor.SqlDialectQuoteHandler",
+            "dev.brikk.house.sql.intellij.editor.KeywordOverlayHighlighterFactory", "dev.brikk.house.sql.intellij.dialect.PgFamilyDialect",
+            "dev.brikk.house.sql.intellij.dialect.SqlDialectRegistry"))
             assertSame(name, loader, loader.loadClass(name).classLoader)
+        assertEquals("dev.brikk.house.sql.intellij.lexer.MaskingSqlLexer",
+            loader.loadClass("dev.sort.trino.sql.TrinoLexer").superclass.name)
+        assertEquals("dev.brikk.house.sql.intellij.dialect.PgFamilyDialect",
+            loader.loadClass("dev.sort.trino.sql.TrinoSqlDialect").superclass.name)
+        val registry = loader.loadClass("dev.brikk.house.sql.intellij.dialect.SqlDialectRegistry")
+        val registryInstance = registry.getField("INSTANCE").get(null)
+        val entry = registry.getMethod("forLanguageId", String::class.java).invoke(registryInstance, "TrinoSQL")!!
+        assertSame(loader, entry.javaClass.classLoader)
+        assertEquals("trino", entry.javaClass.getMethod("getCoreDialect").invoke(entry))
+        assertSame(entry, registry.getMethod("forMarker", String::class.java).invoke(registryInstance, "TRINO"))
+        val dbms = loader.loadClass("dev.sort.trino.TrinoDbms").getField("TRINO_BRIKK").get(null)
+        assertSame(entry, registry.getMethod("forDbms", com.intellij.database.Dbms::class.java).invoke(registryInstance, dbms))
+        assertNull(registry.getMethod("forLanguageId", String::class.java).invoke(registryInstance, "GenericSQL"))
         assertEquals("dev.brikk.house.sql.intellij.completion.SqlCompletionContributor",
             loader.loadClass("dev.sort.trino.sql.TrinoMetadataCompletionContributor").superclass.name)
         assertEquals("dev.brikk.house.sql.intellij.pipe.PipeStageCompletionContributor",
@@ -37,6 +55,13 @@ class TrinoPipesIsolationTest : BasePlatformTestCase() {
             if (name != "sql-transpiler") {
                 val completion = "dev.brikk.house.sql.intellij.completion.SqlCompletionContributor"
                 assertNotSame(loader.loadClass(completion), peer.pluginClassLoader!!.loadClass(completion))
+                for (shared in listOf("lexer.MaskingSqlLexer", "pipe.PipeStatementGate", "editor.MaskedSpanRecolorAnnotator",
+                    "dialect.PgFamilyDialect", "dialect.SqlDialectRegistry")) {
+                    val type = "dev.brikk.house.sql.intellij.$shared"
+                    val peerType = peer.pluginClassLoader!!.loadClass(type)
+                    assertSame(peer.pluginClassLoader, peerType.classLoader)
+                    assertNotSame(loader.loadClass(type), peerType)
+                }
             }
         }
         for (id in listOf("Console.Jdbc.Execute", "Console.Jdbc.Execute.2", "Console.Jdbc.Execute.3", "Console.Jdbc.Execute.Selection")) {

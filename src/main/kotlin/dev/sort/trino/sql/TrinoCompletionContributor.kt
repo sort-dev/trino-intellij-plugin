@@ -44,7 +44,7 @@ class TrinoCompletionContributor : CompletionContributor() {
             result: CompletionResultSet,
         ) {
             val file = parameters.originalFile
-            if (!file.language.isKindOf(TrinoSqlDialect.INSTANCE)) return
+            if (!file.language.isKindOf(TrinoSqlDialect)) return
             recoverEditorOperation {
                 val text = file.text
                 val offset = parameters.offset.coerceAtMost(text.length)

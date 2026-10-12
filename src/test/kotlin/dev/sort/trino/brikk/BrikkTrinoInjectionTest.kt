@@ -276,7 +276,7 @@ open class BrikkTrinoInjectionTest : BasePlatformTestCase() {
     }
     fun testPhysicalDdlInspectionsKeepColumnsAndBindsDistinct() {
         val schema = myFixture.addFileToProject("schema.sql", "CREATE TABLE customers (tenant VARCHAR NOT NULL, id INTEGER);")
-        dev.sort.trino.setSqlDialectMapping(project, schema.virtualFile, dev.sort.trino.sql.TrinoSqlDialect.INSTANCE)
+        dev.brikk.house.sql.intellij.testing.setSqlDialectMapping(project, schema.virtualFile, dev.sort.trino.sql.TrinoSqlDialect)
         val manager = com.intellij.sql.database.SqlDataSourceManager.getInstance(project)
         val source = manager.createEmpty().apply {
             name = "Brikk Trino DDL fixture"

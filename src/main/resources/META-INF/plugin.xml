@@ -114,7 +114,8 @@
         <annotator language="TrinoSQL" implementationClass="dev.sort.trino.brikk.BrikkSqlContractAnnotator"/>
         <gotoDeclarationHandler implementation="dev.sort.trino.brikk.BrikkSqlGotoDeclarationHandler"/>
         <lang.parserDefinition language="TrinoSQL" implementationClass="dev.sort.trino.sql.TrinoParserDefinition"/>
-        <lang.commenter language="TrinoSQL" implementationClass="dev.sort.trino.sql.TrinoCommenter"/>
+        <lang.commenter language="TrinoSQL" implementationClass="com.intellij.database.sql.common.core.psi.impl.support.SqlNestedCommenter"/>
+        <lang.quoteHandler language="TrinoSQL" implementationClass="dev.sort.trino.sql.TrinoQuoteHandler"/>
         <!-- LOAD-BEARING beyond colors: the SQL todo/id indexers derive their filter lexer from
              the language's syntax highlighter; absence crashes the TODO index on our files. -->
         <lang.syntaxHighlighterFactory language="TrinoSQL" implementationClass="dev.sort.trino.sql.TrinoSyntaxHighlighterFactory"/>

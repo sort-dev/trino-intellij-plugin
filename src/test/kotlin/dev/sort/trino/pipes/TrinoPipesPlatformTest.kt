@@ -21,7 +21,7 @@ class TrinoPipesPlatformTest : BasePlatformTestCase() {
     }
     fun testSettingRefreshAndStatementRanges() {
         val file = myFixture.configureByText("pipeline.sql", "SELECT 1; FROM t |> WHERE x = 2 |> SELECT x; SELECT 3;")
-        dev.sort.trino.setSqlDialectMapping(project, file.virtualFile, TrinoSqlDialect.INSTANCE)
+        dev.brikk.house.sql.intellij.testing.setSqlDialectMapping(project, file.virtualFile, TrinoSqlDialect)
         project.service<TrinoPipesSettings>().enabled = true
         PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
         val psi = PsiDocumentManager.getInstance(project).getPsiFile(myFixture.editor.document)!!
@@ -38,7 +38,7 @@ class TrinoPipesPlatformTest : BasePlatformTestCase() {
     fun testLongPipelineDoesNotUseTheOldBoundedLookahead() {
         val text = "SELECT " + List(700) { "1" }.joinToString(" + ") + " AS value |> SELECT value; SELECT 2;"
         val file = myFixture.configureByText("long-pipe.sql", text)
-        dev.sort.trino.setSqlDialectMapping(project, file.virtualFile, TrinoSqlDialect.INSTANCE)
+        dev.brikk.house.sql.intellij.testing.setSqlDialectMapping(project, file.virtualFile, TrinoSqlDialect)
         project.service<TrinoPipesSettings>().enabled = true
         PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
         val psi = PsiDocumentManager.getInstance(project).getPsiFile(myFixture.editor.document)!!
@@ -52,7 +52,7 @@ class TrinoPipesPlatformTest : BasePlatformTestCase() {
     fun testPipeDiagnosticsUseSharedRangesAlongsideNativeErrors() {
         val sql = "FROM t |> BOGUS 2; SELECT FROM WHERE;"
         val file = myFixture.configureByText("pipe-errors.sql", sql)
-        dev.sort.trino.setSqlDialectMapping(project, file.virtualFile, TrinoSqlDialect.INSTANCE)
+        dev.brikk.house.sql.intellij.testing.setSqlDialectMapping(project, file.virtualFile, TrinoSqlDialect)
         project.service<TrinoPipesSettings>().enabled = true
         PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
         val annotator = TrinoErrorAnnotator()
@@ -65,7 +65,7 @@ class TrinoPipesPlatformTest : BasePlatformTestCase() {
     fun testWholeStagePhrasesIncludingNestedPipelinesGetKeywordColoring() {
         val sql = "FROM (FROM t |> FULL OUTER JOIN u ON t.id = u.id) AS p |> ORDER BY id"
         val file = myFixture.configureByText("pipe-colors.sql", sql)
-        dev.sort.trino.setSqlDialectMapping(project, file.virtualFile, TrinoSqlDialect.INSTANCE)
+        dev.brikk.house.sql.intellij.testing.setSqlDialectMapping(project, file.virtualFile, TrinoSqlDialect)
         project.service<TrinoPipesSettings>().enabled = true
         PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
         val colors = myFixture.doHighlighting().filter { it.forcedTextAttributesKey == DefaultLanguageHighlighterColors.KEYWORD }
@@ -75,7 +75,7 @@ class TrinoPipesPlatformTest : BasePlatformTestCase() {
         }
     }
     fun testStagePhrasesAndInputAliasesComplete() {
-        dev.sort.trino.setSqlDialectMapping(project, null, TrinoSqlDialect.INSTANCE)
+        dev.brikk.house.sql.intellij.testing.setSqlDialectMapping(project, null, TrinoSqlDialect)
         project.service<TrinoPipesSettings>().enabled = true
         myFixture.configureByText("pipe-keywords.sql", "FROM t |> <caret>")
         myFixture.completeBasic()

@@ -23,7 +23,7 @@ class BrikkTrinoInjectionContributor : LanguageInjectionContributor {
         if (result.context.dialect != BrikkDialect.TRINO) return null
         return object : Injection {
             override fun getInjectedLanguageId() = "TrinoSQL"
-            override fun getInjectedLanguage() = TrinoSqlDialect.INSTANCE
+            override fun getInjectedLanguage() = TrinoSqlDialect
             override fun getPrefix() = "-- dialect: trino\n"
             override fun getSuffix() = ""
             override fun getSupportId() = "kotlin"
@@ -59,7 +59,7 @@ class BrikkTrinoInjectionPerformer : LanguageInjectionPerformer {
             if (current?.context?.dialect == BrikkDialect.TRINO) current.context.relations else emptyMap()
         }
         val places = places(host, shared)
-        registrar.startInjecting(TrinoSqlDialect.INSTANCE)
+        registrar.startInjecting(TrinoSqlDialect)
         registrar.putInjectedFileUserData(BrikkTrinoProfile.KEY, profile)
         registrar.frankensteinInjection(shared.uncertain)
         registrar.makeInspectionsLenient(shared.uncertain)

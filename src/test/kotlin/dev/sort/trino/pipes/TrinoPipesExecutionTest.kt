@@ -138,7 +138,7 @@ class TrinoPipesExecutionTest : BasePlatformTestCase() {
         val recording: RecordingConsole
         val console get() = recording.console
         init {
-            dev.sort.trino.setSqlDialectMapping(project, vf, TrinoSqlDialect.INSTANCE)
+            dev.brikk.house.sql.intellij.testing.setSqlDialectMapping(project, vf, TrinoSqlDialect)
             recording = RecordingConsole(project, vf, "trino-brikk")
             assertTrue("New console must be valid", console.isValid)
             connection.subscribe(Notifications.TOPIC, object : Notifications {
@@ -161,7 +161,7 @@ class TrinoPipesExecutionTest : BasePlatformTestCase() {
             try {
                 recording.close()
             } finally {
-                dev.sort.trino.setSqlDialectMapping(project, vf, null)
+                dev.brikk.house.sql.intellij.testing.setSqlDialectMapping(project, vf, null)
             }
         }
     }

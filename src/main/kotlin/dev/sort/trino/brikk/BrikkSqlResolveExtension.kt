@@ -29,7 +29,7 @@ class BrikkSqlResolveExtension : SqlResolveExtension {
 }
 
 private class ContractColumnSymbol(private val file: PsiFile, row: BrikkSqlScopes.Relation, private val column: ColumnContract) :
-    LightElement(file.manager, TrinoSqlDialect.INSTANCE), DasPsiSymbol, DasColumnSymbol {
+    LightElement(file.manager, TrinoSqlDialect), DasPsiSymbol, DasColumnSymbol {
     private val identity = Triple(row.alias.lowercase(java.util.Locale.ROOT), row.slot, row.sourceStart)
     private val model = ContractColumn(row, column)
     override fun equals(other: Any?): Boolean = other is ContractColumnSymbol && file.originalFile === other.file.originalFile &&

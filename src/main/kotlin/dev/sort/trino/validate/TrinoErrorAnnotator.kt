@@ -60,7 +60,7 @@ class TrinoErrorAnnotator : ExternalAnnotator<TrinoErrorAnnotator.Info, TrinoErr
         collectInformation(file)
 
     override fun collectInformation(file: PsiFile): Info? {
-        if (!file.language.isKindOf(TrinoSqlDialect.INSTANCE)) return null
+        if (!file.language.isKindOf(TrinoSqlDialect)) return null
         val source by lazy(LazyThreadSafetyMode.NONE) { PipeText.of(file) }
         val enabled = TrinoPipeDialect.isEditingEnabled(file)
         val profile = BrikkTrinoProfile.forFile(file)

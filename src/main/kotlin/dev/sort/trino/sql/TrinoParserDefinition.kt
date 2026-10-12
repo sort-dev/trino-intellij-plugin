@@ -21,6 +21,6 @@ class TrinoParserDefinition : SqlParserDefinitionBase() {
     override fun getFileNodeType(): IFileElementType = FILE
 
     private companion object {
-        private val FILE = SqlFileElementType("TRINO_BRIKK_SQL_FILE", TrinoSqlDialect.INSTANCE)
+        private val FILE = SqlFileElementType("TRINO_BRIKK_SQL_FILE", TrinoSqlDialect)
     }
 }

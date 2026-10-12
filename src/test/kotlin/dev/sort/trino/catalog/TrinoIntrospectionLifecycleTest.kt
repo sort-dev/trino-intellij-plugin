@@ -13,7 +13,7 @@ import com.intellij.database.util.LoaderContext
 import com.intellij.openapi.components.service
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import dev.sort.trino.setSqlDialectMapping
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 import dev.sort.trino.sql.TrinoSqlDialect
 import dev.sort.trino.TrinoDbms
 import kotlinx.coroutines.CompletableDeferred
@@ -30,9 +30,9 @@ class TrinoIntrospectionLifecycleTest : BasePlatformTestCase() {
     override fun setUp() {
         super.setUp()
         TrinoAutoIntrospect.resetForTest()
-        setSqlDialectMapping(project, null, TrinoSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, null, TrinoSqlDialect)
         myFixture.configureByText("introspect.sql", "SELECT * FROM tpch.<caret>")
-        setSqlDialectMapping(project, myFixture.file.virtualFile, TrinoSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, myFixture.file.virtualFile, TrinoSqlDialect)
         val model = ModelFactory.BLACK_HOLE.createModel(TrinoDbms.TRINO_BRIKK)
         catalog = (model.root as PgRoot).databases.createOrGet(1L).apply { name = "tpch" }
         source = LocalDataSource().apply {
@@ -124,7 +124,7 @@ class TrinoIntrospectionLifecycleTest : BasePlatformTestCase() {
         }
         try {
             completeNamespace()
-            assertSame(TrinoSqlDialect.INSTANCE, myFixture.file.language)
+            assertSame(TrinoSqlDialect, myFixture.file.language)
             assertNotNull("Completion did not schedule a namespace refresh", notifier.collectNotificationData(project, myFixture.file.virtualFile))
             val context = PlatformTestUtil.waitForFuture(started, 10_000)
             assertSame(source, context.dataSource)
