@@ -25,12 +25,14 @@ import dev.sort.trino.TrinoDbms
 import dev.sort.trino.sql.TrinoCompletionProfile
 import dev.sort.trino.sql.TrinoSqlDialect
 import java.lang.reflect.Proxy
+import java.nio.file.Path
 import java.sql.Connection
 import java.sql.ResultSet
 import java.sql.SQLException
 import java.sql.Statement
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.io.path.readLines
 import kotlinx.coroutines.runBlocking
 
 class TrinoLiveCatalogTest : BasePlatformTestCase() {
@@ -140,8 +142,8 @@ class TrinoLiveCatalogTest : BasePlatformTestCase() {
 
     private fun rows(sql: String): List<List<String?>> = when (sql) {
         TrinoFunctionHarvester.SQL_VERSION -> listOf(listOf("483"))
-        TrinoFunctionHarvester.SQL_FUNCTIONS -> requireNotNull(javaClass.getResourceAsStream("/trino-functions-483.tsv"))
-            .bufferedReader().use { reader -> reader.readLines().filter(String::isNotBlank).map { it.split('\t') } }
+        TrinoFunctionHarvester.SQL_FUNCTIONS -> Path.of(System.getProperty("corpus.dir")).parent.resolve("trino-functions-483.tsv")
+            .readLines().filter(String::isNotBlank).map { it.split('\t') }
         else -> error("Unexpected SQL: $sql")
     }
 

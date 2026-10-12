@@ -70,6 +70,12 @@ class TrinoPipesIsolationTest : BasePlatformTestCase() {
         assertSame(loader.loadClass("dev.sort.trino.catalog.TrinoExecutionObserverProfile").getField("INSTANCE").get(null), observerProfile)
         assertSame(serviceType, observerProfile.javaClass.getMethod("getAutoIntrospect").invoke(observerProfile))
         assertNull(observerProfile.javaClass.getMethod("getLiveCatalog").invoke(observerProfile))
+        val liveType = loader.loadClass("dev.sort.trino.catalog.TrinoLiveCatalogService")
+        val live = com.intellij.openapi.application.ApplicationManager.getApplication().getService(liveType)
+        assertSame(loader, live.javaClass.classLoader)
+        val liveProfile = liveType.getMethod("getProfile").invoke(live)
+        assertSame(loader.loadClass("dev.sort.trino.catalog.TrinoFunctionCatalogProfile").getField("INSTANCE").get(null), liveProfile)
+        assertEquals(true, liveProfile.javaClass.getMethod("getEnabled").invoke(liveProfile))
         val registry = loader.loadClass("dev.brikk.house.sql.intellij.dialect.SqlDialectRegistry")
         val registryInstance = registry.getField("INSTANCE").get(null)
         val entry = registry.getMethod("forLanguageId", String::class.java).invoke(registryInstance, "TrinoSQL")!!
@@ -102,10 +108,15 @@ class TrinoPipesIsolationTest : BasePlatformTestCase() {
                     "catalog.AutoIntrospectEngine", "catalog.AutoIntrospectService", "catalog.IntrospectBannerProvider",
                     "catalog.QualifiedPathIntrospectContributor")
                 val peerHasCatalogKit = peer.pluginClassLoader!!.getResource("dev/brikk/house/sql/intellij/catalog/CatalogProfile.class") != null
+                val liveKit = listOf("catalog.LiveCatalogService", "catalog.LiveCatalogStore", "catalog.HarvestConnectionInterceptor",
+                    "catalog.LiveCatalogCleanup", "catalog.TrinoLiveCatalogProfile", "catalog.TrinoFunctionHarvester",
+                    "catalog.ExecutionObserver", "catalog.ExecutionObserverProfile", "catalog.ExecutionObserverStartup",
+                    "catalog.StatementHeadDetector")
+                val peerHasLiveKit = peer.pluginClassLoader!!.getResource("dev/brikk/house/sql/intellij/catalog/LiveCatalogService.class") != null
                 for (shared in listOf("lexer.MaskingSqlLexer", "pipe.PipeStatementGate", "editor.MaskedSpanRecolorAnnotator",
                     "dialect.PgFamilyDialect", "dialect.SqlDialectRegistry", "catalog.PgFamilyModelFacade",
                     "catalog.GenericJdbcIntrospectorGate", "catalog.DialectDataSourceResolver", "catalog.DataSourceResolution") +
-                    catalogKit.takeIf { peerHasCatalogKit }.orEmpty()) {
+                    catalogKit.takeIf { peerHasCatalogKit }.orEmpty() + liveKit.takeIf { peerHasLiveKit }.orEmpty()) {
                     val type = "dev.brikk.house.sql.intellij.$shared"
                     val peerType = peer.pluginClassLoader!!.loadClass(type)
                     assertSame(peer.pluginClassLoader, peerType.classLoader)

@@ -197,8 +197,9 @@ class TrinoIntrospectionLifecycleTest : BasePlatformTestCase() {
 
     fun testCancellationDuringRequestPropagates() {
         RecordingConsole(project, myFixture.file.virtualFile, "trino-brikk").use { recording ->
+            val requestingThread = Thread.currentThread()
             for (cancellation in listOf(ProcessCanceledException(), CancellationException())) {
-                recording.beforeSessionCall = { throw cancellation }
+                recording.beforeSessionCall = { if (Thread.currentThread() === requestingThread) throw cancellation }
                 try {
                     assertSame(cancellation, runCatching { requests.requestPath(myFixture.file, listOf("tpch")) }.exceptionOrNull())
                 } finally {
