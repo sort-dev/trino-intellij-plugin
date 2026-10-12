@@ -28,62 +28,65 @@ class TrinoPsiParser : PgParser(false) {
 
     override fun parseSqlStatement(builder: PsiBuilder, level: Int): Boolean {
         val file = builder.getUserData(FileContextUtil.CONTAINING_FILE_KEY)
-        if (pipeGate.parse(builder, BrikkTrinoProfile.forFile(file) != null && builder.wordAt(0) == "FROM")) return true
-        when (builder.wordAt(0)) {
+        val head = builder.wordAt(0)
+        if (pipeGate.parse(builder, BrikkTrinoProfile.forFile(file) != null && head == "FROM")) return true
+        val next = builder.wordAt(1)
+        // Trino-only heads are lenient; shared heads require a Trino-only clause or bare VALUES.
+        // Never steal PG-parseable forms: view markers must precede AS, and routine RETURN stays structured.
+        when (head) {
             "USE", "SHOW", "DESCRIBE", "DESC", "DENY", "GRANT", "REVOKE",
             -> return builder.parseLenientStatement()
 
-            "DEALLOCATE" -> if (builder.wordAt(1) == "PREPARE") return builder.parseLenientStatement()
-            "SET" -> when (builder.wordAt(1)) {
+            "DEALLOCATE" -> if (next == "PREPARE") return builder.parseLenientStatement()
+            "SET" -> when (next) {
                 "SESSION", "PATH", "TIME" -> return builder.parseLenientStatement()
             }
-            "RESET" -> if (builder.wordAt(1) == "SESSION") return builder.parseLenientStatement()
+            "RESET" -> if (next == "SESSION") return builder.parseLenientStatement()
             "PREPARE" -> if (builder.firstOf("FROM", "AS") == "FROM") return builder.parseLenientStatement()
-            "EXECUTE" -> if (builder.wordAt(1) == "IMMEDIATE" || builder.containsAny("USING")) {
+            "EXECUTE" -> if (next == "IMMEDIATE" || builder.containsAny("USING")) {
                 return builder.parseLenientStatement()
             }
             "ANALYZE" -> if (builder.containsAny("WITH")) return builder.parseLenientStatement()
             "EXPLAIN" -> {
-                val w1 = builder.wordAt(1)
-                if (w1 == "TYPE") return builder.parseLenientStatement()
-                val subject = if (w1 == "ANALYZE") builder.wordAt(2) else w1
+                if (next == "TYPE") return builder.parseLenientStatement()
+                val subject = if (next == "ANALYZE") builder.wordAt(2) else next
                 if (subject in LENIENT_UNDER_EXPLAIN) return builder.parseLenientStatement()
             }
             "WITH" -> {
-                if (builder.wordAt(1) == "FUNCTION" || builder.hasBareValuesRow()) return builder.parseLenientStatement()
+                if (next == "FUNCTION" || builder.hasBareValuesRow()) return builder.parseLenientStatement()
             }
             "VALUES", "INSERT" -> if (builder.hasBareValuesRow()) return builder.parseLenientStatement()
             "CREATE" -> {
-                if (builder.wordAt(1) in setOf("CATALOG", "BRANCH")) return builder.parseLenientStatement()
-                if (builder.wordAt(1) == "OR" && builder.wordAt(2) == "REPLACE" &&
-                    builder.wordAt(3) in setOf("TABLE", "MATERIALIZED")) return builder.parseLenientStatement()
-                if (builder.wordAt(1) in setOf("VIEW", "MATERIALIZED") &&
+                if (next in CATALOG_HEADS) return builder.parseLenientStatement()
+                if (next == "OR" && builder.wordAt(2) == "REPLACE" &&
+                    builder.wordAt(3) in REPLACE_TABLE_HEADS) return builder.parseLenientStatement()
+                if (next in VIEW_HEADS &&
                     builder.containsAnyBefore("AS", "COMMENT", "GRACE", "WHEN", "SECURITY")) {
                     return builder.parseLenientStatement()
                 }
-                if (builder.wordAt(1) == "SCHEMA" && builder.containsAny("WITH")) return builder.parseLenientStatement()
+                if (next == "SCHEMA" && builder.containsAny("WITH")) return builder.parseLenientStatement()
                 if (builder.wordThenWord("INCLUDING", "PROPERTIES")) return builder.parseLenientStatement()
                 if (builder.wordThenToken("AS", "(")) return builder.parseLenientStatement()
                 if (builder.wordThenWord("AS", "WITH") && builder.hasBareValuesRow()) return builder.parseLenientStatement()
-                if (builder.wordAt(1) == "FUNCTION" ||
-                    builder.wordAt(1) == "OR" && builder.wordAt(2) == "REPLACE" && builder.wordAt(3) == "FUNCTION") {
+                if (next == "FUNCTION" ||
+                    next == "OR" && builder.wordAt(2) == "REPLACE" && builder.wordAt(3) == "FUNCTION") {
                     if (builder.containsAny("LANGUAGE", "DETERMINISTIC", "SECURITY", "CALLED") ||
                         !builder.containsAny("RETURN", "AS")) return builder.parseLenientStatement()
                 }
-                if (builder.wordAt(1) == "ROLE" &&
+                if (next == "ROLE" &&
                     (builder.wordThenWord("ADMIN", "USER") || builder.wordThenWord("ADMIN", "ROLE") ||
-                        builder.wordAt(3) == "IN" && builder.wordAt(4) !in setOf("ROLE", "GROUP"))) {
+                        builder.wordAt(3) == "IN" && builder.wordAt(4) !in PG_ROLE_MEMBERSHIPS)) {
                     return builder.parseLenientStatement()
                 }
             }
-            "DROP" -> if (builder.wordAt(1) in setOf("CATALOG", "BRANCH")) return builder.parseLenientStatement()
+            "DROP" -> if (next in CATALOG_HEADS) return builder.parseLenientStatement()
             "ALTER" -> {
-                if (builder.wordAt(1) == "BRANCH") return builder.parseLenientStatement()
+                if (next == "BRANCH") return builder.parseLenientStatement()
                 if (builder.wordThenWord("SET", "AUTHORIZATION") || builder.wordThenWord("SET", "PROPERTIES")) {
                     return builder.parseLenientStatement()
                 }
-                if (builder.wordAt(1) == "TABLE" && builder.containsAny("EXECUTE")) return builder.parseLenientStatement()
-                if (builder.wordAt(1) == "VIEW" && builder.containsAny("REFRESH")) return builder.parseLenientStatement()
+                if (next == "TABLE" && builder.containsAny("EXECUTE")) return builder.parseLenientStatement()
+                if (next == "VIEW" && builder.containsAny("REFRESH")) return builder.parseLenientStatement()
                 if (builder.wordThenWord("COLUMN", "IF")) return builder.parseLenientStatement()
             }
         }
@@ -109,6 +112,10 @@ class TrinoPsiParser : PgParser(false) {
         scanStatement { previous, text -> true.takeIf { previous.equals("VALUES", true) && text != "(" } } == true
 
     private companion object {
+        val CATALOG_HEADS = setOf("CATALOG", "BRANCH")
+        val REPLACE_TABLE_HEADS = setOf("TABLE", "MATERIALIZED")
+        val VIEW_HEADS = setOf("VIEW", "MATERIALIZED")
+        val PG_ROLE_MEMBERSHIPS = setOf("ROLE", "GROUP")
         val LENIENT_UNDER_EXPLAIN = setOf("ANALYZE", "SHOW", "DESC", "DESCRIBE", "USE", "DENY", "GRANT", "REVOKE")
     }
 }

@@ -1,5 +1,13 @@
 package dev.sort.trino.sql
 
+import dev.brikk.house.sql.metadata.KeywordCategory
+import dev.brikk.house.sql.metadata.TRINO_METADATA
+
+internal val TRINO_RESERVED_KEYWORDS: Set<String> =
+    TRINO_METADATA.default.keywords?.keywords.orEmpty()
+        .filter { it.category == KeywordCategory.RESERVED }
+        .mapTo(HashSet()) { it.word.uppercase() }
+
 internal val TRINO_KEYWORDS = setOf(
     "SELECT", "FROM", "WHERE", "GROUP", "ORDER", "BY", "HAVING", "LIMIT", "OFFSET", "FETCH",
     "FIRST", "ROWS", "ONLY", "JOIN", "LEFT", "RIGHT", "FULL", "INNER", "OUTER", "CROSS", "ON",

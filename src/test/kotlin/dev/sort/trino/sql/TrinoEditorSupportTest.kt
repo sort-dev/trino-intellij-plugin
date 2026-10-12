@@ -10,6 +10,10 @@ import com.intellij.psi.PsiFileFactory
 import com.intellij.psi.tree.IElementType
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.sql.dialects.postgres.PgDialect
+import com.intellij.sql.dialects.postgres.PgLexer
+import com.intellij.sql.dialects.base.SqlSyntaxHighlighterFactory
+import dev.brikk.house.sql.metadata.KeywordCategory
+import dev.brikk.house.sql.metadata.TRINO_METADATA
 import com.intellij.sql.psi.SqlTokens
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.brikk.house.sql.intellij.testing.lexAll
@@ -56,6 +60,9 @@ class TrinoEditorSupportTest : BasePlatformTestCase() {
         val all = myFixture.doHighlighting()
         assertTrue(recolors(all, sql, "field_name").contains(color(SqlTokens.SQL_IDENT)))
         assertTrue(recolors(all, sql, "ROW").contains(color(SqlTokens.SQL_KEYWORD_TOKEN)))
+        assertNotSame(color(SqlTokens.SQL_IDENT), color(SqlTokens.SQL_KEYWORD_TOKEN))
+        assertFalse(recolors(all, sql, "field_name").contains(color(SqlTokens.SQL_KEYWORD_TOKEN)))
+        assertFalse(recolors(all, sql, "ROW").contains(color(SqlTokens.SQL_IDENT)))
     }
 
     fun testRoutineBodyKeepsKeywordAndLiteralColors() {
@@ -70,13 +77,41 @@ class TrinoEditorSupportTest : BasePlatformTestCase() {
         configure("SELECT 1;")
         val first = TrinoSyntaxHighlighterFactory().getSyntaxHighlighter(project, myFixture.file.virtualFile)
         val second = TrinoSyntaxHighlighterFactory().getSyntaxHighlighter(project, myFixture.file.virtualFile)
-        val sql = "MATCH_RECOGNIZE ordinary_name"
+        val reserved = TRINO_RESERVED_KEYWORDS.first { PgLexer().lexAll(it).single().type == SqlTokens.SQL_IDENT }
+        val sql = "$reserved ordinary_name"
         val tokens = first.highlightingLexer.lexAll(sql)
         val keyword = tokens.first()
         assertNotSame(SqlTokens.SQL_IDENT, keyword.type)
         assertSame(keyword.type, second.highlightingLexer.lexAll(sql).first().type)
         assertEquals(color(SqlTokens.SQL_KEYWORD_TOKEN), first.getTokenHighlights(keyword.type).last())
         assertSame(SqlTokens.SQL_IDENT, tokens.last().type)
+    }
+
+    fun testOverlayOnlyAddsReservedKeywordsAndPreservesPlatformColors() {
+        configure("SELECT key, value, count FROM kv;")
+        assertEquals(TRINO_METADATA.default.keywords!!.keywords.filter { it.category == KeywordCategory.RESERVED }
+            .map { it.word.uppercase() }.toSet(), TRINO_RESERVED_KEYWORDS)
+        val overlay = TrinoSyntaxHighlighterFactory().getSyntaxHighlighter(project, myFixture.file.virtualFile)
+        val base = object : SqlSyntaxHighlighterFactory.Base(TrinoSqlDialect) {}.getSyntaxHighlighter(project, myFixture.file.virtualFile)
+        val sql = myFixture.editor.document.text
+        val tokens = overlay.highlightingLexer.lexAll(sql)
+        val platformTokens = base.highlightingLexer.lexAll(sql)
+        for (word in listOf("key", "value", "count")) {
+            val token = tokens.single { sql.substring(it.start, it.end) == word }
+            val platformToken = platformTokens.single { sql.substring(it.start, it.end) == word }
+            assertSame(platformToken.type, token.type)
+            assertFalse(word.uppercase() in TRINO_RESERVED_KEYWORDS)
+            assertEquals(base.getTokenHighlights(platformToken.type).toList(), overlay.getTokenHighlights(token.type).toList())
+            if (word == "count") assertEquals(color(SqlTokens.SQL_IDENT),
+                overlay.getTokenHighlights(token.type).lastOrNull() ?: HighlighterColors.TEXT)
+        }
+        for (word in listOf("SELECT", "FROM")) {
+            val token = tokens.single { sql.substring(it.start, it.end) == word }
+            val platformToken = platformTokens.single { sql.substring(it.start, it.end) == word }
+            assertNotSame(SqlTokens.SQL_IDENT, platformToken.type)
+            assertSame(platformToken.type, token.type)
+            assertEquals(base.getTokenHighlights(platformToken.type).toList(), overlay.getTokenHighlights(token.type).toList())
+        }
     }
 
     fun testEnterKeepsMultilineStrings() {

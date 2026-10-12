@@ -31,6 +31,13 @@ class TrinoLexerTest : BasePlatformTestCase() {
         assertEquals(listOf("MATCH_RECOGNIZE (PATTERN (A))", "PIVOT (sum(x) FOR y IN (1))"),
             TrinoLexer().lexAll(sql).filter { it.type == SqlTokens.SQL_BLOCK_COMMENT }.map { sql.substring(it.start, it.end) })
         assertRestartsMatchFullLex(::TrinoLexer, sql)
+        val collapsed = "SELECT * FROM (VALUES 1, 2) PIVOT (sum(x) FOR y IN (1));"
+        val tokens = TrinoLexer().lexAll(collapsed)
+        assertTrue(tokens.any { it.type == SqlTokens.SQL_IDENT && collapsed.substring(it.start, it.end) == "(VALUES 1, 2)" })
+        assertEquals("PIVOT (sum(x) FOR y IN (1))", tokens.single { it.type == SqlTokens.SQL_BLOCK_COMMENT }.let {
+            collapsed.substring(it.start, it.end)
+        })
+        assertRestartsMatchFullLex(::TrinoLexer, collapsed)
     }
 
     fun testTerminatedRoutineHasNoTokenLimit() {
@@ -39,6 +46,32 @@ class TrinoLexerTest : BasePlatformTestCase() {
         val token = TrinoLexer().lexAll(sql).single { it.type == SqlTokens.SQL_STRING_TOKEN }
         assertEquals(body, sql.substring(token.start, token.end))
         assertRestartsMatchFullLex(::TrinoLexer, sql)
+    }
+
+    fun testBranchMaskConsumesOnlyOneToken() {
+        for (branch in listOf("123", "\"audit\"", "_audit", "audit")) {
+            val sql = "SELECT * FROM t @ $branch WHERE id = 1; SELECT 2;"
+            val tokens = TrinoLexer().lexAll(sql)
+            assertEquals("@ $branch", tokens.single { it.type == SqlTokens.SQL_BLOCK_COMMENT }.let { sql.substring(it.start, it.end) })
+            assertTrue(tokens.any { sql.substring(it.start, it.end) == "WHERE" })
+            assertRestartsMatchFullLex(::TrinoLexer, sql)
+        }
+        val incomplete = "SELECT * FROM t @ ; SELECT 2;"
+        val tokens = TrinoLexer().lexAll(incomplete)
+        assertEquals(2, tokens.count { incomplete.substring(it.start, it.end) == ";" })
+        assertRestartsMatchFullLex(::TrinoLexer, incomplete)
+    }
+
+    fun testTimeTravelMaskConsumesBalancedCall() {
+        for (expression in listOf("CAST('2026-01-01' AS TIMESTAMP)", "CAST (concat('2026-', '01-01') AS TIMESTAMP)")) {
+            val sql = "SELECT * FROM t FOR TIMESTAMP AS OF $expression WHERE id = 1; SELECT 2;"
+            val tokens = TrinoLexer().lexAll(sql)
+            assertEquals("FOR TIMESTAMP AS OF $expression", tokens.single { it.type == SqlTokens.SQL_BLOCK_COMMENT }.let {
+                sql.substring(it.start, it.end)
+            })
+            assertTrue(tokens.any { sql.substring(it.start, it.end) == "WHERE" })
+            assertRestartsMatchFullLex(::TrinoLexer, sql)
+        }
     }
 
     fun testUnterminatedRoutineEndsBeforeFirstSemicolon() {

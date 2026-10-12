@@ -36,7 +36,7 @@ class TrinoDialectBootTest : BasePlatformTestCase() {
         assertNull(SqlDialectRegistry.forLanguageId("GenericSQL"))
         assertEquals(PgDialect.INSTANCE.systemVariables, TrinoSqlDialect.systemVariables)
         val plus = PgLexer().lexAll("+").single().type
-        assertEquals(PgDialect.INSTANCE.isOperatorSupported(plus), TrinoSqlDialect.isOperatorSupported(plus))
+        assertTrue(TrinoSqlDialect.isOperatorSupported(plus))
         val f = parse("SELECT CAST(1 AS bigint), EXTRACT(YEAR FROM DATE '2026-01-01'), CURRENT_TIMESTAMP;")
         assertEmpty(PsiTreeUtil.findChildrenOfType(f, PsiErrorElement::class.java))
     }

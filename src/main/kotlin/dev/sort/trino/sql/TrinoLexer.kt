@@ -18,6 +18,9 @@ class TrinoLexer : MaskingSqlLexer(PgLexer(), CastTargetMask()) {
     }
 
     override fun rule(base: Lexer, upper: String): Boolean {
+        // Collapse routine bodies, type targets and scalar VALUES; mask droppable table modifiers.
+        // JSON calls collapse only with SQL/JSON clauses, leaving ordinary calls structured.
+        // PIVOT follows a relation-like token, including masked or collapsed spans, not a call position.
         when {
             upper == "BEGIN" && sawFunction && parenDepth == 0 -> collapseRoutineBody(base)
             upper == "JSON_TABLE" && nextIs(base, "(") ->
@@ -26,7 +29,7 @@ class TrinoLexer : MaskingSqlLexer(PgLexer(), CastTargetMask()) {
                 collapseWithGroup(base, SqlTokens.SQL_STRING_TOKEN, "COLLAPSED_CALL")
             upper == "ROW" && nextIs(base, "::") -> collapseRowMethodCall(base)
             upper in TYPE_COLLAPSE_HEADS && nextIs(base, "(") &&
-                lastMeaningful in setOf("AS", "TYPE") ->
+                lastMeaningful in TYPE_POSITIONS ->
                 collapseWithGroup(base, SqlTokens.SQL_IDENT, "COLLAPSED_CALL")
             upper == "DOUBLE" && !wordsFollow(base, "PRECISION") -> emitAs(base, SqlTokens.SQL_IDENT)
             upper == "MATCH_RECOGNIZE" && nextIs(base, "(") -> maskWithGroup(base)
@@ -35,7 +38,7 @@ class TrinoLexer : MaskingSqlLexer(PgLexer(), CastTargetMask()) {
                 maskWithGroup(base)
             upper == "LATERAL" && parenAfterLeadsScalarValues(base) ->
                 collapseWithGroup(base, SqlTokens.SQL_IDENT, "COLLAPSED_GROUP")
-            base.tokenText == "(" && lastMeaningful in VALUES_TABLE_POSITIONS &&
+            upper == "(" && lastMeaningful in VALUES_TABLE_POSITIONS &&
                 leadsScalarValuesAt(base.bufferSequence, base.tokenStart) -> {
                 consumeBalanced(base)
                 span(base, SqlTokens.SQL_IDENT, "COLLAPSED_GROUP")
@@ -47,7 +50,7 @@ class TrinoLexer : MaskingSqlLexer(PgLexer(), CastTargetMask()) {
             upper == "AT" && wordsFollow(base, "LOCAL") -> maskWords(base, 2)
             upper == "ON" && wordsFollow(base, "OVERFLOW") -> maskOverflowClause(base)
             upper == "AS" && lastMeaningful == "*" && nextIs(base, "(") -> maskWithGroup(base)
-            base.tokenText == "@" -> maskWords(base, 1)
+            upper == "@" -> maskBranch(base)
             else -> return false
         }
         return true
@@ -69,9 +72,21 @@ class TrinoLexer : MaskingSqlLexer(PgLexer(), CastTargetMask()) {
         skipWhitespaceTokens(base)
         when {
             base.tokenText == "(" -> consumeBalanced(base)
+            base.tokenText.firstOrNull()?.isLetter() == true && nextIs(base, "(") -> {
+                base.advance()
+                skipWhitespaceTokens(base)
+                consumeBalanced(base)
+            }
             base.tokenType != null -> base.advance()
         }
         span(base, SqlTokens.SQL_BLOCK_COMMENT, MASKED)
+    }
+
+    private fun maskBranch(base: Lexer) {
+        base.advance()
+        skipWhitespaceTokens(base)
+        if (base.tokenType != null && base.tokenText != ";") base.advance()
+        span(base, SqlTokens.SQL_BLOCK_COMMENT, null)
     }
 
     private fun maskOverflowClause(base: Lexer) {
@@ -143,6 +158,7 @@ class TrinoLexer : MaskingSqlLexer(PgLexer(), CastTargetMask()) {
 
     private companion object {
         val TYPE_COLLAPSE_HEADS = setOf("ROW", "MAP", "ARRAY")
+        val TYPE_POSITIONS = setOf("AS", "TYPE")
         val JSON_FN_HEADS = setOf("JSON_QUERY", "JSON_VALUE", "JSON_EXISTS", "JSON_OBJECT", "JSON_ARRAY")
         val JSON_CLAUSE_WORDS = setOf(
             "PASSING", "RETURNING", "WRAPPER", "QUOTES", "ERROR", "EMPTY",
