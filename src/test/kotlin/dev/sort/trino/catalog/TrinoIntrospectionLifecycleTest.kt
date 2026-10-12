@@ -199,7 +199,11 @@ class TrinoIntrospectionLifecycleTest : BasePlatformTestCase() {
         RecordingConsole(project, myFixture.file.virtualFile, "trino-brikk").use { recording ->
             for (cancellation in listOf(ProcessCanceledException(), CancellationException())) {
                 recording.beforeSessionCall = { throw cancellation }
-                assertSame(cancellation, runCatching { requests.requestPath(myFixture.file, listOf("tpch")) }.exceptionOrNull())
+                try {
+                    assertSame(cancellation, runCatching { requests.requestPath(myFixture.file, listOf("tpch")) }.exceptionOrNull())
+                } finally {
+                    recording.beforeSessionCall = {}
+                }
             }
             introspections.assertNone()
             assertNoBanner()
