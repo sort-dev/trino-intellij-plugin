@@ -46,7 +46,7 @@ class TrinoIntrospectionLifecycleTest : BasePlatformTestCase() {
         LocalDataSourceManager.getInstance(project).addDataSource(source)
         DbPsiFacade.getInstance(project).clearCaches()
         com.intellij.testFramework.IndexingTestUtil.waitUntilIndexesAreReady(project)
-        assertSame(source, TrinoDataSourceResolver.resolve(myFixture.file))
+        assertSame(source, trinoDataSourceResolver.resolve(myFixture.file).dataSource)
         assertChildlessCatalog()
     }
 

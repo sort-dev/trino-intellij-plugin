@@ -12,7 +12,7 @@ import com.intellij.patterns.PlatformPatterns
 import com.intellij.util.ProcessingContext
 import dev.brikk.house.sql.intellij.recoverEditorOperation
 import dev.sort.trino.catalog.TrinoAutoIntrospect
-import dev.sort.trino.catalog.TrinoDataSourceResolver
+import dev.sort.trino.catalog.trinoDataSourceResolver
 import dev.sort.trino.catalog.TrinoNamespacePath
 
 class TrinoCompletionContributor : CompletionContributor() {
@@ -54,7 +54,7 @@ class TrinoCompletionContributor : CompletionContributor() {
                     ?: return
                 if (parts.isEmpty() || parts.size > 2) return  // only catalog / catalog.schema deepen
 
-                val local = TrinoDataSourceResolver.resolve(file) ?: return
+                val local = trinoDataSourceResolver.resolve(file).dataSource ?: return
                 val facade = DbPsiFacade.getInstance(file.project)
                 val dataSource = facade.findDataSource(local.uniqueId)
                     ?: facade.dataSources.firstOrNull { it.uniqueId == local.uniqueId }
