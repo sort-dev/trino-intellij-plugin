@@ -1,22 +1,19 @@
 package dev.sort.trino.sql
 
+import com.intellij.codeInsight.lookup.LookupElement
+import com.intellij.codeInsight.lookup.LookupElementPresentation
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import dev.brikk.house.sql.intellij.completion.SqlLookupKind
+import dev.brikk.house.sql.metadata.FunctionKind
 import dev.brikk.house.sql.metadata.FunctionPresentation
 import dev.sort.trino.setSqlDialectMapping
+import icons.DatabaseIcons
+import javax.swing.Icon
 
-/**
- * Exercises completion in the mapped Trino dialect.
- *
- * Fixture rules (duckdb lessons): map the dialect project-wide (null vfile) BEFORE configureByText —
- * a post-configure mapping leaves the completion session on pre-mapping PSI; and a SINGLE matching
- * variant auto-inserts (the lookup never shows), so multi-hit prefixes are used where the lookup
- * list itself must be inspected.
- */
 class TrinoCompletionTest : BasePlatformTestCase() {
-
-    private fun mapAndConfigure(text: String) {
+    override fun setUp() {
+        super.setUp()
         setSqlDialectMapping(project, null, TrinoSqlDialect.INSTANCE)
-        myFixture.configureByText("c.sql", text)
     }
 
     override fun tearDown() {
@@ -27,55 +24,104 @@ class TrinoCompletionTest : BasePlatformTestCase() {
         }
     }
 
-    fun testScalarFunctionOffered() {
-        // date_ prefix has several scalar hits (date_add/date_diff/date_trunc/...) -> lookup shows.
-        mapAndConfigure("SELECT date_<caret> FROM t;")
-        val variants = myFixture.completeBasic()
-        assertNotNull("date_ prefix should present a lookup list", variants)
-        val trunc = variants!!.firstOrNull { it.lookupString == "date_trunc" && it.`object` is FunctionPresentation }
-        assertNotNull("date_trunc offered; got ${variants.map { it.lookupString }.take(15)}", trunc)
+    private fun complete(sql: String): Array<LookupElement> {
+        myFixture.configureByText("completion.sql", sql)
+        val items = myFixture.completeBasic()
+        assertNotNull("Expected a lookup list for $sql", items)
+        return items!!
     }
 
-    fun testScalarInsertsParensWithCaretBetween() {
-        // `word_stem` is Trino-only (absent from the PG substrate) and prefix-unique, so ONLY our
-        // element carries it -> single-match auto-insert runs the parens handler. The defensive
-        // branch covers the (unexpected) multi-candidate case by committing our element explicitly.
-        mapAndConfigure("SELECT word_stem<caret> FROM t;")
-        val variants = myFixture.completeBasic()
-        if (variants != null) {
-            val ours = variants.firstOrNull { it.lookupString == "word_stem" }
-            assertNotNull("word_stem offered; got ${variants.map { it.lookupString }.take(15)}", ours)
-            myFixture.lookup.currentItem = ours
-            myFixture.type('\n')
-        }
-        val text = myFixture.editor.document.text
-        assertTrue("parens inserted: $text", text.contains("word_stem()"))
-        val caret = myFixture.editor.caretModel.offset
-        assertEquals("caret sits between the parens", '(', text[caret - 1])
-        assertEquals("caret sits between the parens", ')', text[caret])
+    private fun function(sql: String, name: String): LookupElement =
+        complete(sql).single { it.lookupString == name && it.`object` is FunctionPresentation }
+
+    private fun assertPresentation(
+        sql: String,
+        name: String,
+        kind: SqlLookupKind,
+        icon: Icon,
+        fallback: String,
+    ) {
+        val item = function(sql, name)
+        val entry = item.`object` as FunctionPresentation
+        val presentation = LookupElementPresentation().also(item::renderElement)
+        assertEquals(name, icon, presentation.icon)
+        assertEquals(name, fallback, TrinoCompletionProfile.styles[kind].typeText)
+        assertEquals(name, entry.returnType ?: fallback, presentation.typeText)
+        assertNull(name, presentation.tailText)
     }
 
-    fun testAggregateOffered() {
-        mapAndConfigure("SELECT approx_<caret> FROM t;")
-        val variants = myFixture.completeBasic()
-        assertNotNull("approx_ prefix should present a lookup list", variants)
-        val agg = variants!!.firstOrNull { it.lookupString == "approx_distinct" && it.`object` is FunctionPresentation }
-        assertNotNull("approx_distinct offered; got ${variants.map { it.lookupString }.take(15)}", agg)
+    private fun accept(sql: String, name: String, completionChar: Char = '\n') {
+        val item = function(sql, name)
+        myFixture.lookup.currentItem = item
+        myFixture.finishLookup(completionChar)
     }
 
-    fun testTableFunctionCompletes() {
-        mapAndConfigure("SELECT * FROM exclude_col<caret>;")
-        myFixture.completeBasic()
-        val lookups = myFixture.lookupElementStrings.orEmpty()
-        val text = myFixture.editor.document.text
-        assertTrue(
-            "exclude_columns table function offered or inserted; lookups=${lookups.take(12)} text=$text",
-            lookups.contains("exclude_columns") || text.contains("exclude_columns("),
-        )
+    fun testScalarPresentation() {
+        assertPresentation("SELECT date_<caret> FROM t;", "date_trunc",
+            SqlLookupKind.FUNCTION, DatabaseIcons.Function, "scalar")
+    }
+
+    fun testAggregatePresentation() {
+        assertPresentation("SELECT approx_<caret> FROM t;", "approx_distinct",
+            SqlLookupKind.AGGREGATE, DatabaseIcons.Aggregate, "aggregate")
+    }
+
+    fun testWindowPresentation() {
+        assertPresentation("SELECT row_num<caret> FROM t;", "row_number",
+            SqlLookupKind.WINDOW, DatabaseIcons.Function, "window")
+    }
+
+    fun testTableFunctionPresentation() {
+        assertPresentation("SELECT * FROM TABLE(ex<caret>);", "exclude_columns",
+            SqlLookupKind.TABLE_FUNCTION, DatabaseIcons.Table, "table")
+    }
+
+    fun testGrammarFormPresentation() {
+        assertPresentation("SELECT ca<caret>", "CAST",
+            SqlLookupKind.FUNCTION, DatabaseIcons.Function, "scalar")
+        assertPresentation("SELECT * FROM JSON_<caret>", "JSON_TABLE",
+            SqlLookupKind.TABLE_FUNCTION, DatabaseIcons.Table, "table")
+    }
+
+    fun testFunctionInsertsCallWithCaretInArguments() {
+        accept("SELECT ab<caret>", "abs")
+        myFixture.checkResult("SELECT abs(<caret>)")
+    }
+
+    fun testExistingParenthesisIsReused() {
+        accept("SELECT ab<caret>(1)", "abs")
+        myFixture.checkResult("SELECT abs(<caret>1)")
+    }
+
+    fun testArgumentlessCallPlacesCaretAfterParentheses() {
+        accept("SELECT current_<caret>", "current_timezone")
+        myFixture.checkResult("SELECT current_timezone()<caret>")
+    }
+
+    fun testBareGrammarFormDoesNotInsertParentheses() {
+        accept("SELECT current_time<caret>", "CURRENT_TIMESTAMP")
+        myFixture.checkResult("SELECT CURRENT_TIMESTAMP<caret>")
+    }
+
+    fun testSpecialGrammarFormDoesNotInsertParentheses() {
+        accept("SELECT ca<caret>", "CAST")
+        myFixture.checkResult("SELECT CAST<caret>")
+    }
+
+    fun testTypedParenthesisAcceptsSpecialForm() {
+        accept("SELECT ca<caret>", "CAST", '(')
+        myFixture.checkResult("SELECT CAST(<caret>)")
+    }
+
+    fun testSequenceRetainsScalarAndTableEntries() {
+        val entries = complete("SELECT seq<caret>").mapNotNull { it.`object` as? FunctionPresentation }
+            .filter { it.name == "sequence" }
+        assertEquals(2, entries.size)
+        assertEquals(setOf(FunctionKind.SCALAR, FunctionKind.TABLE_VALUED), entries.map { it.kind }.toSet())
     }
 
     fun testReservedKeywordCompletes() {
-        mapAndConfigure("SELECT * FROM t\nGROU<caret>")
+        myFixture.configureByText("keywords.sql", "SELECT * FROM t\nGROU<caret>")
         myFixture.completeBasic()
         val lookups = myFixture.lookupElementStrings.orEmpty()
         val text = myFixture.editor.document.text
@@ -83,5 +129,11 @@ class TrinoCompletionTest : BasePlatformTestCase() {
             "GROUP keyword offered or inserted; lookups=${lookups.take(12)} text=$text",
             lookups.contains("GROUP") || text.contains("GROUP"),
         )
+    }
+
+    fun testKeywordDoesNotDuplicatePlatformLookup() {
+        val items = complete("SELECT 1; SE<caret>")
+        assertEquals(items.map { it.lookupString }.toString(), 1,
+            items.count { it.lookupString.equals("SELECT", ignoreCase = true) })
     }
 }
