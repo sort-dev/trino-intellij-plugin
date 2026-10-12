@@ -140,7 +140,17 @@
         <editorNotificationProvider implementation="dev.sort.trino.catalog.TrinoIntrospectBannerProvider"/>
     </extensions>
 
+    <projectListeners>
+        <listener class="dev.sort.trino.catalog.TrinoLiveCatalogCleanup"
+                  topic="com.intellij.database.dataSource.DataSourceStorage$Listener"/>
+    </projectListeners>
+    <applicationListeners>
+        <listener class="dev.sort.trino.catalog.TrinoLiveCatalogCleanup"
+                  topic="com.intellij.database.dataSource.DataSourceStorage$Listener"/>
+    </applicationListeners>
+
     <extensions defaultExtensionNs="com.intellij.database">
+        <connectionInterceptor implementation="dev.sort.trino.catalog.TrinoHarvestConnectionInterceptor"/>
         <dbms id="TRINO_BRIKK" instance="dev.sort.trino.TrinoDbms.TRINO_BRIKK"/>
         <!-- Trino speaks ANSI-with-PG-adjacent surface; PG machinery is the family default for
              everything we don't override. The modelFacade completes the facade/dialect/introspector

@@ -29,7 +29,10 @@ class TrinoPipesIsolationTest : BasePlatformTestCase() {
             "dev.brikk.house.sql.intellij.catalog.CatalogProfile", "dev.brikk.house.sql.intellij.catalog.CatalogScopes",
             "dev.brikk.house.sql.intellij.catalog.NamespacePathResolver", "dev.brikk.house.sql.intellij.catalog.NamespaceTarget",
             "dev.brikk.house.sql.intellij.catalog.AutoIntrospectEngine", "dev.brikk.house.sql.intellij.catalog.AutoIntrospectService",
-            "dev.brikk.house.sql.intellij.catalog.IntrospectBannerProvider", "dev.brikk.house.sql.intellij.catalog.QualifiedPathIntrospectContributor"))
+            "dev.brikk.house.sql.intellij.catalog.IntrospectBannerProvider", "dev.brikk.house.sql.intellij.catalog.QualifiedPathIntrospectContributor",
+            "dev.brikk.house.sql.intellij.catalog.TrinoFunctionHarvester", "dev.brikk.house.sql.intellij.catalog.TrinoLiveCatalogProfile",
+            "dev.brikk.house.sql.intellij.catalog.LiveCatalogService", "dev.brikk.house.sql.intellij.catalog.HarvestConnectionInterceptor",
+            "dev.brikk.house.sql.intellij.catalog.LiveCatalogCleanup", "dev.brikk.house.sql.intellij.catalog.LiveCatalogStore"))
             assertSame(name, loader, loader.loadClass(name).classLoader)
         assertEquals("dev.brikk.house.sql.intellij.lexer.MaskingSqlLexer",
             loader.loadClass("dev.sort.trino.sql.TrinoLexer").superclass.name)
@@ -43,6 +46,9 @@ class TrinoPipesIsolationTest : BasePlatformTestCase() {
             "TrinoAutoIntrospectService" to "AutoIntrospectService",
             "TrinoIntrospectBannerProvider" to "IntrospectBannerProvider",
             "TrinoQualifiedPathIntrospectContributor" to "QualifiedPathIntrospectContributor",
+            "TrinoLiveCatalogService" to "LiveCatalogService",
+            "TrinoHarvestConnectionInterceptor" to "HarvestConnectionInterceptor",
+            "TrinoLiveCatalogCleanup" to "LiveCatalogCleanup",
         )) {
             val type = loader.loadClass("dev.sort.trino.catalog.$consumer")
             assertSame(loader, type.classLoader)
