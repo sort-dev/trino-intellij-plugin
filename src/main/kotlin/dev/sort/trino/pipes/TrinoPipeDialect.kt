@@ -20,7 +20,7 @@ object TrinoPipeDialect : PipeDialect {
     override val language get() = TrinoSqlDialect.INSTANCE
     override fun isProjectEnabled(project: Project) = project.service<TrinoPipesSettings>().enabled
     override fun enablesEditing(file: PsiFile) = BrikkTrinoProfile.forFile(file) != null
-    override fun isInspectionHost(file: PsiFile) = BrikkTrinoProfile.forFile(file) != null
+    override fun isInspectionHost(file: PsiFile) = enablesEditing(file)
     override fun enablesPreview(file: PsiFile) = !isInspectionHost(file)
     override fun ownsSession(session: DatabaseSession) = session.connectionPoint.dbms === TrinoDbms.TRINO_BRIKK
     override val validator = object : NativeSqlValidator {

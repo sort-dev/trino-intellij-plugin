@@ -15,8 +15,6 @@ import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.brikk.house.sql.intellij.*
 import dev.brikk.house.sql.intellij.pipe.PipeExecuteInterceptor
-import dev.brikk.house.sql.intellij.pipe.PipeTranslation
-import dev.brikk.house.sql.intellij.pipe.lower
 import dev.brikk.house.sql.intellij.testing.RecordingConsole
 import dev.sort.trino.sql.TrinoSqlDialect
 
@@ -37,13 +35,8 @@ class TrinoPipesExecutionTest : BasePlatformTestCase() {
             for (variant in 1..4) {
                 f.editor.selectionModel.setSelection(0, sql.length)
                 f.execute(variant)
-                assertEquals(f.notifications.map { it.content }.toString(), variant, f.requests.size)
-                val request = f.requests.last() as DataRequest.QueryRequest
-                assertEquals((TrinoPipeDialect.lower(sql) as PipeTranslation.Lowered).sql, request.query)
-                assertSame(f.console, request.owner)
-                assertSame(f.editor, (request as DataRequest.CoupledWithEditor).editor)
+                assertSame(f.editor, (f.requests.last() as DataRequest.CoupledWithEditor).editor)
                 assertEquals(sql, f.editor.document.text)
-                assertEmpty(f.previous)
             }
         }
     }

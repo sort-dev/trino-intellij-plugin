@@ -1,5 +1,9 @@
 package dev.sort.trino.brikk
 
+import com.intellij.codeInsight.daemon.impl.AnnotationHolderImpl
+import com.intellij.lang.annotation.AnnotationSession
+import com.intellij.lang.annotation.Annotator
+import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.lang.injection.InjectedLanguageManager
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.components.service
@@ -7,11 +11,14 @@ import com.intellij.psi.*
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.refactoring.rename.RenameProcessor
 import com.intellij.sql.psi.SqlReferenceExpression
+import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.brikk.house.intellij.*
 import dev.brikk.house.sql.intellij.pipe.PipeExecuteInterceptor
+import dev.brikk.house.sql.intellij.pipe.PipeText
 import dev.brikk.house.sql.intellij.pipe.isEditingEnabled
 import dev.sort.trino.pipes.*
+import dev.sort.trino.validate.TrinoErrorAnnotator
 import org.jetbrains.kotlin.idea.references.mainReference
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtStringTemplateExpression
@@ -75,6 +82,56 @@ open class BrikkTrinoInjectionTest : BasePlatformTestCase() {
         assertTrue(file.text, "FROM src() |> WHERE id > :id |> SELECT id, tenant" in file.text)
         assertEquals(listOf("src"), BrikkTrinoProfile.forFile(file)!!.slots)
         assertEmpty(BrikkTrinoProfile.forFile(file)!!.issues)
+    }
+    fun testBrikkParseErrorHighlightsTheWholeToken() {
+        for (sql in listOf("SELECT 1 FROM", "SELECT \\\"face\\\" FROM")) {
+            val file = injected(configure("@BrikkSql fun query() = Sql.trino(\"$sql\")"))
+            assertEmpty(BrikkTrinoProfile.forFile(file)!!.issues)
+            val source = PipeText.of(file)
+            val annotator = TrinoErrorAnnotator()
+            val result = annotator.doAnnotate(annotator.collectInformation(file))!!
+            assertEquals(1, result.errors.size)
+            val range = result.errors.single().first
+            assertEquals("FROM", source.text.substring(range.startOffset, range.endOffset))
+            val annotations = AnnotationHolderImpl(AnnotationSession(file), false)
+            annotations.runAnnotatorWithContext(file, Annotator { _, holder -> annotator.apply(file, result, holder) })
+            annotations.assertAllAnnotationsCreated()
+            val error = annotations.single { it.severity == HighlightSeverity.ERROR }
+            assertEquals(file.text.indexOf("FROM"), error.startOffset)
+            assertEquals(file.text.indexOf("FROM") + 4, error.endOffset)
+        }
+    }
+    fun testNativeInjectedPipeDiagnosticsUseUnescapedCoordinates() {
+        val settings = project.service<TrinoPipesSettings>()
+        val previous = settings.enabled
+        settings.enabled = true
+        try {
+            for (sql in listOf(
+                "FROM t |> SELECT \\\"face\\\" AS face\\n |> BOGUS 2",
+                "SELECT \\\"face\\\" AS face;\\nFROM t |> BOGUS 2",
+            )) {
+                val file = injected(configure("fun query() = Sql.trino(\"$sql\")"))
+                assertNull(BrikkTrinoProfile.forFile(file))
+                val source = PipeText.of(file)
+                assertTrue("Expected an escaped injection: ${file.text}", file.text.length > source.text.length)
+                val annotator = TrinoErrorAnnotator()
+                val info = annotator.collectInformation(file)!!
+                assertEquals(source.text, info.source)
+                assertEquals(source.text.substringAfter(';').trim(), info.statements.last().second.trim())
+                val result = annotator.doAnnotate(info)!!
+                assertEmpty(result.errors)
+                assertEquals(1, result.pipeErrors.size)
+                val annotations = AnnotationHolderImpl(AnnotationSession(file), false)
+                annotations.runAnnotatorWithContext(file, Annotator { _, holder -> annotator.apply(file, result, holder) })
+                annotations.assertAllAnnotationsCreated()
+                val error = annotations.single { it.severity == HighlightSeverity.ERROR }
+                assertEquals(file.text.indexOf("BOGUS"), error.startOffset)
+                assertEquals(file.text.indexOf("BOGUS") + 5, error.endOffset)
+            }
+        } finally {
+            settings.enabled = previous
+            PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
+        }
     }
     fun testFromFirstInjectionPreservesLaterStatements() {
         for (first in listOf("FROM src()", "FROM src() |> SELECT id")) {

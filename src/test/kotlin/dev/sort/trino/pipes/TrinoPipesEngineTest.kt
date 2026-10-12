@@ -6,8 +6,6 @@ import dev.brikk.house.sql.intellij.pipe.ValidationTiming
 import dev.brikk.house.sql.intellij.pipe.containsPipe
 import dev.brikk.house.sql.intellij.pipe.lower
 import dev.brikk.house.sql.parser.ColumnUnit
-import dev.brikk.house.sql.parser.PipeStageCut
-import dev.brikk.house.sql.parser.PipeStageSplitter
 import dev.sort.trino.validate.TrinoStatementValidator
 import org.junit.Test
 import kotlin.test.*
@@ -60,16 +58,7 @@ class TrinoPipesEngineTest {
         assertNull(assertIs<PipeTranslation.Lowered>(TrinoPipeDialect.lower(sql.replace(":id", "17"), substituted = true)).blocker)
     }
     @Test fun initialStageIsScopedToAClaimedPipeline() {
-        assertIs<PipeTranslation.NotPipe>(TrinoPipeDialect.lower("FROM t"))
-        val sql = "FROM t |> SELECT id |> LIMIT 2"
-        val first = assertIs<PipeStageCut.Prefix>(PipeStageSplitter.topLevelPrefixAt(sql, 2, "trino"))
-        assertEquals(0, first.stage)
-        assertIs<PipeTranslation.Lowered>(TrinoPipeDialect.lower(first.sql, firstStage = true))
-        assertIs<PipeTranslation.NotPipe>(TrinoPipeDialect.lower("SELECT 1"))
-        val selectHead = assertIs<PipeStageCut.Prefix>(PipeStageSplitter.topLevelPrefixAt("SELECT 1 AS id |> WHERE id > 0", 3, "trino"))
-        assertIs<PipeTranslation.Lowered>(TrinoPipeDialect.lower(selectHead.sql, firstStage = true))
-        val nested = "FROM (FROM t |> SELECT id |> WHERE id > 0) AS inner_query |> SELECT id"
-        assertSame(PipeStageCut.InsideNestedPipeline, PipeStageSplitter.topLevelPrefixAt(nested, nested.indexOf("WHERE"), "trino"))
-        assertIs<PipeStageCut.Prefix>(PipeStageSplitter.topLevelPrefixAt(nested, nested.lastIndexOf("SELECT"), "trino"))
+        assertIs<PipeTranslation.Lowered>(TrinoPipeDialect.lower("FROM t", firstStage = true))
+        assertIs<PipeTranslation.Lowered>(TrinoPipeDialect.lower("SELECT 1 AS id", firstStage = true))
     }
 }

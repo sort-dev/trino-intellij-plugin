@@ -35,11 +35,8 @@ dependencies {
 }
 
 tasks.processResources {
-    val sqlIdeVersion = libs.versions.brikk.sql.intellij.support.get()
-    inputs.property("sqlIdeVersion", sqlIdeVersion)
     from(files("THIRD_PARTY_NOTICES.md")) {
         into("META-INF")
-        filter { line: String -> line.replace("brikk-sql-intellij-support:0.1.1", "brikk-sql-intellij-support:$sqlIdeVersion") }
     }
 }
 
