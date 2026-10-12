@@ -15,8 +15,11 @@ class TrinoPipesIsolationTest : BasePlatformTestCase() {
         assertEquals("com.intellij.ide.plugins.cl.PluginClassLoader", loader.javaClass.name)
         val fragment = loader.loadClass("dev.brikk.house.sql.shape.SqlFragment")
         for (name in listOf(fragment.name, "dev.brikk.house.sql.intellij.CooperativeExecuteAction", "dev.brikk.house.intellij.ColumnContract",
-            "dev.brikk.house.sql.intellij.pipe.PipeDialect", "dev.brikk.house.sql.intellij.pipe.PipeExecuteInterceptor"))
+            "dev.brikk.house.sql.intellij.pipe.PipeDialect", "dev.brikk.house.sql.intellij.pipe.PipeExecuteInterceptor",
+            "dev.brikk.house.sql.intellij.completion.SqlCompletionContributor", "dev.brikk.house.sql.metadata.DialectMetadata"))
             assertSame(name, loader, loader.loadClass(name).classLoader)
+        assertEquals("dev.brikk.house.sql.intellij.completion.SqlCompletionContributor",
+            loader.loadClass("dev.sort.trino.sql.TrinoMetadataCompletionContributor").superclass.name)
         assertEquals("dev.brikk.house.sql.intellij.pipe.PipeStageCompletionContributor",
             loader.loadClass("dev.sort.trino.pipes.TrinoPipesCompletionContributor").superclass.name)
         val configuration = loader.loadClass("dev.sort.trino.pipes.TrinoPipesActionConfiguration").getConstructor().newInstance()
@@ -29,6 +32,12 @@ class TrinoPipesIsolationTest : BasePlatformTestCase() {
         for (name in listOf("doris", "duckdb", "sql-transpiler")) {
             val peer = PluginManagerCore.getPlugin(PluginId.getId("dev.sort.$name-intellij-plugin")) ?: continue
             assertNotSame(fragment, peer.pluginClassLoader!!.loadClass(fragment.name))
+            val metadata = "dev.brikk.house.sql.metadata.DialectMetadata"
+            assertNotSame(loader.loadClass(metadata), peer.pluginClassLoader!!.loadClass(metadata))
+            if (name != "sql-transpiler") {
+                val completion = "dev.brikk.house.sql.intellij.completion.SqlCompletionContributor"
+                assertNotSame(loader.loadClass(completion), peer.pluginClassLoader!!.loadClass(completion))
+            }
         }
         for (id in listOf("Console.Jdbc.Execute", "Console.Jdbc.Execute.2", "Console.Jdbc.Execute.3", "Console.Jdbc.Execute.Selection")) {
             var action = ActionManager.getInstance().getAction(id)!!

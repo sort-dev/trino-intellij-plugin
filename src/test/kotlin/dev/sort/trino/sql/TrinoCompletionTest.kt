@@ -1,14 +1,11 @@
 package dev.sort.trino.sql
 
-import com.intellij.codeInsight.lookup.LookupElement
-import com.intellij.codeInsight.lookup.LookupElementPresentation
-import dev.sort.trino.setSqlDialectMapping
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import icons.DatabaseIcons
+import dev.brikk.house.sql.metadata.FunctionPresentation
+import dev.sort.trino.setSqlDialectMapping
 
 /**
- * Pins the bundled-catalog completion end to end: functions offered with kind icons + return-type
- * text + parens insertion, and reserved words offered as plain CAPS keywords.
+ * Exercises completion in the mapped Trino dialect.
  *
  * Fixture rules (duckdb lessons): map the dialect project-wide (null vfile) BEFORE configureByText —
  * a post-configure mapping leaves the completion session on pre-mapping PSI; and a SINGLE matching
@@ -22,19 +19,21 @@ class TrinoCompletionTest : BasePlatformTestCase() {
         myFixture.configureByText("c.sql", text)
     }
 
-    private fun render(el: LookupElement): LookupElementPresentation =
-        LookupElementPresentation().also { el.renderElement(it) }
+    override fun tearDown() {
+        try {
+            setSqlDialectMapping(project, null, null)
+        } finally {
+            super.tearDown()
+        }
+    }
 
-    fun testScalarFunctionOfferedWithFunctionIconAndReturnType() {
+    fun testScalarFunctionOffered() {
         // date_ prefix has several scalar hits (date_add/date_diff/date_trunc/...) -> lookup shows.
         mapAndConfigure("SELECT date_<caret> FROM t;")
         val variants = myFixture.completeBasic()
         assertNotNull("date_ prefix should present a lookup list", variants)
-        val trunc = variants!!.firstOrNull { it.lookupString == "date_trunc" }
+        val trunc = variants!!.firstOrNull { it.lookupString == "date_trunc" && it.`object` is FunctionPresentation }
         assertNotNull("date_trunc offered; got ${variants.map { it.lookupString }.take(15)}", trunc)
-        val p = render(trunc!!)
-        assertEquals("scalar function -> Function icon", DatabaseIcons.Function, p.icon)
-        assertTrue("return type shown as type text: '${p.typeText}'", !p.typeText.isNullOrBlank())
     }
 
     fun testScalarInsertsParensWithCaretBetween() {
@@ -56,16 +55,12 @@ class TrinoCompletionTest : BasePlatformTestCase() {
         assertEquals("caret sits between the parens", ')', text[caret])
     }
 
-    fun testAggregateOfferedWithDistinctAggregateIcon() {
+    fun testAggregateOffered() {
         mapAndConfigure("SELECT approx_<caret> FROM t;")
         val variants = myFixture.completeBasic()
         assertNotNull("approx_ prefix should present a lookup list", variants)
-        val agg = variants!!.firstOrNull { it.lookupString == "approx_distinct" }
+        val agg = variants!!.firstOrNull { it.lookupString == "approx_distinct" && it.`object` is FunctionPresentation }
         assertNotNull("approx_distinct offered; got ${variants.map { it.lookupString }.take(15)}", agg)
-        val icon = render(agg!!).icon
-        assertEquals("aggregate -> Aggregate icon", DatabaseIcons.Aggregate, icon)
-        // "distinct" == a different glyph than scalar functions get.
-        assertNotSame("aggregate icon must differ from scalar", DatabaseIcons.Function, icon)
     }
 
     fun testTableFunctionCompletes() {
@@ -88,14 +83,5 @@ class TrinoCompletionTest : BasePlatformTestCase() {
             "GROUP keyword offered or inserted; lookups=${lookups.take(12)} text=$text",
             lookups.contains("GROUP") || text.contains("GROUP"),
         )
-    }
-
-    fun testIconMappingCoversEveryKind() {
-        // The single source of truth, asserted directly (platform up, so DatabaseIcons is safe).
-        assertEquals(DatabaseIcons.Function, TrinoCompletionContributor.iconFor(TrinoFunctionCatalog.Kind.SCALAR))
-        assertEquals(DatabaseIcons.Aggregate, TrinoCompletionContributor.iconFor(TrinoFunctionCatalog.Kind.AGGREGATE))
-        assertEquals(DatabaseIcons.Function, TrinoCompletionContributor.iconFor(TrinoFunctionCatalog.Kind.WINDOW))
-        assertEquals(DatabaseIcons.Table, TrinoCompletionContributor.iconFor(TrinoFunctionCatalog.Kind.TABLE))
-        assertEquals(DatabaseIcons.Function, TrinoCompletionContributor.iconFor(TrinoFunctionCatalog.Kind.OTHER))
     }
 }

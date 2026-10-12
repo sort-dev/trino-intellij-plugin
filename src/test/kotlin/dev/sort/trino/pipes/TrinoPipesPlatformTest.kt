@@ -80,6 +80,8 @@ class TrinoPipesPlatformTest : BasePlatformTestCase() {
         myFixture.configureByText("pipe-keywords.sql", "FROM t |> <caret>")
         myFixture.completeBasic()
         assertTrue(myFixture.lookupElementStrings.orEmpty().contains("ORDER BY"))
+        assertFalse(myFixture.lookupElementStrings.orEmpty().contains("CURRENT_TIMESTAMP"))
+        assertFalse(myFixture.lookupElementStrings.orEmpty().contains("CREATE"))
         com.intellij.codeInsight.lookup.LookupManager.getInstance(project).hideActiveLookup()
         myFixture.configureByText("pipe-columns.sql", "FROM t |> SELECT id AS my_output, id AS my_other |> WHERE my_<caret>")
         myFixture.completeBasic()
