@@ -7,7 +7,7 @@ import com.intellij.database.model.basic.BasicElement;
 /**
  * Java shim for {@link IntrospectionTasks} — the factory is Kotlin-{@code internal} in metadata
  * (public in bytecode), so Kotlin sources cannot reference it while Java can (same technique as
- * {@link dev.sort.trino.PgModelAccess} and the sibling doris plugin's {@code PipeIntrospectionTasks}).
+ * the sibling doris plugin's {@code PipeIntrospectionTasks}).
  *
  * <p>{@link TrinoAutoIntrospect} uses this to build the TARGETED one-element refresh — the round-18
  * doris lesson: a general/scope task re-introspects the ENTIRE widened scope and hangs on slow
