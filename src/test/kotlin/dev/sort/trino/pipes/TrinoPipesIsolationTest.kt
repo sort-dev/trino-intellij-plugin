@@ -25,7 +25,11 @@ class TrinoPipesIsolationTest : BasePlatformTestCase() {
             "dev.brikk.house.sql.intellij.catalog.PgFamilyModelFacade",
             "dev.brikk.house.sql.intellij.catalog.GenericJdbcIntrospectorGate",
             "dev.brikk.house.sql.intellij.catalog.DialectDataSourceResolver",
-            "dev.brikk.house.sql.intellij.catalog.DataSourceResolution"))
+            "dev.brikk.house.sql.intellij.catalog.DataSourceResolution",
+            "dev.brikk.house.sql.intellij.catalog.CatalogProfile", "dev.brikk.house.sql.intellij.catalog.CatalogScopes",
+            "dev.brikk.house.sql.intellij.catalog.NamespacePathResolver", "dev.brikk.house.sql.intellij.catalog.NamespaceTarget",
+            "dev.brikk.house.sql.intellij.catalog.AutoIntrospectEngine", "dev.brikk.house.sql.intellij.catalog.AutoIntrospectService",
+            "dev.brikk.house.sql.intellij.catalog.IntrospectBannerProvider", "dev.brikk.house.sql.intellij.catalog.QualifiedPathIntrospectContributor"))
             assertSame(name, loader, loader.loadClass(name).classLoader)
         assertEquals("dev.brikk.house.sql.intellij.lexer.MaskingSqlLexer",
             loader.loadClass("dev.sort.trino.sql.TrinoLexer").superclass.name)
@@ -35,6 +39,20 @@ class TrinoPipesIsolationTest : BasePlatformTestCase() {
             loader.loadClass("dev.sort.trino.TrinoModelFacade").superclass.name)
         assertEquals("dev.brikk.house.sql.intellij.catalog.GenericJdbcIntrospectorGate",
             loader.loadClass("dev.sort.trino.TrinoIntrospectorGate").superclass.name)
+        for ((consumer, shared) in mapOf(
+            "TrinoAutoIntrospectService" to "AutoIntrospectService",
+            "TrinoIntrospectBannerProvider" to "IntrospectBannerProvider",
+            "TrinoQualifiedPathIntrospectContributor" to "QualifiedPathIntrospectContributor",
+        )) {
+            val type = loader.loadClass("dev.sort.trino.catalog.$consumer")
+            assertSame(loader, type.classLoader)
+            assertSame(loader.loadClass("dev.brikk.house.sql.intellij.catalog.$shared"), type.superclass)
+        }
+        val serviceType = loader.loadClass("dev.sort.trino.catalog.TrinoAutoIntrospectService")
+        val service = project.getService(serviceType)
+        assertSame(loader, service.javaClass.classLoader)
+        val profile = serviceType.getMethod("getProfile").invoke(service)
+        assertSame(loader.loadClass("dev.sort.trino.catalog.TrinoCatalogProfile").getField("INSTANCE").get(null), profile)
         val registry = loader.loadClass("dev.brikk.house.sql.intellij.dialect.SqlDialectRegistry")
         val registryInstance = registry.getField("INSTANCE").get(null)
         val entry = registry.getMethod("forLanguageId", String::class.java).invoke(registryInstance, "TrinoSQL")!!
@@ -63,9 +81,14 @@ class TrinoPipesIsolationTest : BasePlatformTestCase() {
             if (name != "sql-transpiler") {
                 val completion = "dev.brikk.house.sql.intellij.completion.SqlCompletionContributor"
                 assertNotSame(loader.loadClass(completion), peer.pluginClassLoader!!.loadClass(completion))
+                val catalogKit = listOf("catalog.CatalogProfile", "catalog.CatalogScopes", "catalog.NamespacePathResolver", "catalog.NamespaceTarget",
+                    "catalog.AutoIntrospectEngine", "catalog.AutoIntrospectService", "catalog.IntrospectBannerProvider",
+                    "catalog.QualifiedPathIntrospectContributor")
+                val peerHasCatalogKit = peer.pluginClassLoader!!.getResource("dev/brikk/house/sql/intellij/catalog/CatalogProfile.class") != null
                 for (shared in listOf("lexer.MaskingSqlLexer", "pipe.PipeStatementGate", "editor.MaskedSpanRecolorAnnotator",
                     "dialect.PgFamilyDialect", "dialect.SqlDialectRegistry", "catalog.PgFamilyModelFacade",
-                    "catalog.GenericJdbcIntrospectorGate", "catalog.DialectDataSourceResolver", "catalog.DataSourceResolution")) {
+                    "catalog.GenericJdbcIntrospectorGate", "catalog.DialectDataSourceResolver", "catalog.DataSourceResolution") +
+                    catalogKit.takeIf { peerHasCatalogKit }.orEmpty()) {
                     val type = "dev.brikk.house.sql.intellij.$shared"
                     val peerType = peer.pluginClassLoader!!.loadClass(type)
                     assertSame(peer.pluginClassLoader, peerType.classLoader)
