@@ -6,6 +6,10 @@ import dev.brikk.house.sql.intellij.pipe.ValidationTiming
 import dev.brikk.house.sql.intellij.pipe.containsPipe
 import dev.brikk.house.sql.intellij.pipe.lower
 import dev.brikk.house.sql.parser.ColumnUnit
+import dev.brikk.house.sql.generator.UnsupportedError
+import dev.brikk.house.sql.shape.Shape
+import dev.brikk.house.sql.shape.ShapeCatalog
+import dev.brikk.house.sql.shape.SqlFragment
 import dev.sort.trino.validate.TrinoStatementValidator
 import org.junit.Test
 import kotlin.test.*
@@ -60,5 +64,45 @@ class TrinoPipesEngineTest {
     @Test fun initialStageIsScopedToAClaimedPipeline() {
         assertIs<PipeTranslation.Lowered>(TrinoPipeDialect.lower("FROM t", firstStage = true))
         assertIs<PipeTranslation.Lowered>(TrinoPipeDialect.lower("SELECT 1 AS id", firstStage = true))
+    }
+    @Test fun refusesUnknownLayoutsForExecutionAndPreview() {
+        for ((stage, finding) in listOf("DROP id" to "EXCEPT", "SET id = 1" to "REPLACE", "RENAME id AS renamed" to "RENAME")) {
+            val sql = "FROM t |> $stage"
+            val refused = assertIs<PipeTranslation.Refused>(TrinoPipeDialect.lower(sql), sql)
+            assertTrue(finding in refused.message, refused.message)
+            assertTrue("complete column layout" in refused.message, refused.message)
+            val preview = assertFailsWith<UnsupportedError> { SqlFragment(sql, "trino").transpileTo("trino", desugarPipes = true) }
+            assertTrue(finding in preview.message.orEmpty(), preview.message)
+        }
+    }
+    @Test fun refusesUnsupportedStagesButKeepsDiagnosticPreviews() {
+        for ((stage, finding) in listOf(
+            "PIVOT (SUM(id) FOR payload IN (1, 2))" to "PIVOT",
+            "UNPIVOT (v FOR k IN (id, payload))" to "PIVOT",
+            "CALL exclude_columns(DESCRIPTOR(id))" to "pipe CALL",
+            "STRAIGHT_JOIN u ON t.id = u.id" to "STRAIGHT_JOIN",
+            "ASOF JOIN u ON t.id = u.id AND t.payload >= u.payload" to "ASOF JOIN",
+            "NATURAL JOIN u" to "NATURAL JOIN",
+        )) {
+            val sql = "FROM t |> $stage"
+            val refused = assertIs<PipeTranslation.Refused>(TrinoPipeDialect.lower(sql), sql)
+            assertTrue(finding in refused.message, refused.message)
+            val preview = SqlFragment(sql, "trino").transpileTo("trino", desugarPipes = true)
+            assertTrue(preview.sql.isNotBlank(), sql)
+            assertTrue(preview.unsupportedMessages.any { finding in it }, "$sql: ${preview.unsupportedMessages}")
+        }
+    }
+    @Test fun completeLayoutsExpandModifiersWithoutNativeStarExtensions() {
+        val layout = ShapeCatalog(tables = mapOf("t" to Shape.of("label" to "VARCHAR", "id" to "INT", "payload" to "BIGINT")))
+        for ((stage, columns) in listOf(
+            "DROP id" to listOf("label", "payload"),
+            "SET id = 7" to listOf("label", "id", "payload"),
+            "RENAME id AS renamed" to listOf("label", "renamed", "payload"),
+        )) {
+            val sql = SqlFragment("FROM t |> $stage", "trino").toStandardSql("trino", layout, expandStars = true)
+            assertFalse("* EXCEPT" in sql || "* REPLACE" in sql || "* RENAME" in sql, sql)
+            assertEquals(columns, SqlFragment(sql, "trino").outputShape(layout).names(), sql)
+            assertNull(TrinoStatementValidator.parse(sql), sql)
+        }
     }
 }
