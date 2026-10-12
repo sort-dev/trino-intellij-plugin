@@ -112,4 +112,25 @@ class TrinoStatementBoundaryTest : BasePlatformTestCase() {
             PsiTreeUtil.findChildrenOfType(f, SqlSelectStatement::class.java).isNotEmpty(),
         )
     }
+
+    fun testBareValuesAndParenthesizedRowsStayDistinct() {
+        assertCleanStatements("VALUES 1, 2; INSERT INTO t VALUES 3, 4; WITH t AS (VALUES 5) SELECT * FROM t;", 3)
+        val f = file("WITH t AS (VALUES (1)) SELECT * FROM t; INSERT INTO t VALUES (2);")
+        assertTrue(PsiTreeUtil.findChildrenOfType(f, SqlSelectStatement::class.java).isNotEmpty())
+        assertEmpty(PsiTreeUtil.findChildrenOfType(f, PsiErrorElement::class.java))
+    }
+
+    fun testViewHeaderScanStopsAtAs() {
+        assertCleanStatements("CREATE VIEW v COMMENT 'view' AS SELECT 1; SELECT 2;", 2)
+        val f = file("CREATE VIEW v AS SELECT security FROM t;")
+        assertTrue(PsiTreeUtil.findChildrenOfType(f, com.intellij.sql.psi.SqlReferenceExpression::class.java).any { it.text == "security" })
+        assertEmpty(PsiTreeUtil.findChildrenOfType(f, PsiErrorElement::class.java))
+    }
+
+    fun testDispatchScansStopAtStatementBoundary() {
+        val f = file("EXPLAIN SELECT 1; SHOW CATALOGS; CREATE VIEW v AS SELECT 2; SET SESSION x = 1;")
+        assertEquals(1, PsiTreeUtil.findChildrenOfType(f, SqlSelectStatement::class.java).size)
+        assertEquals(4, PsiTreeUtil.findChildrenOfType(f, SqlStatement::class.java).count { it.parent === f })
+        assertEmpty(PsiTreeUtil.findChildrenOfType(f, PsiErrorElement::class.java))
+    }
 }
