@@ -1,10 +1,10 @@
 package dev.sort.trino.pipes
 
 import com.intellij.database.actions.ShowSqlParametersPanelAction
-import com.intellij.database.run.ConsoleDataRequest
 import com.intellij.database.console.JdbcConsole
 import com.intellij.database.console.client.*
 import com.intellij.database.datagrid.*
+import com.intellij.database.run.ConsoleDataRequest
 import com.intellij.database.settings.DatabaseSettings
 import com.intellij.notification.*
 import com.intellij.openapi.actionSystem.*
@@ -14,8 +14,11 @@ import com.intellij.psi.PsiManager
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.brikk.house.sql.intellij.*
-import dev.sort.trino.sql.TrinoSqlDialect
+import dev.brikk.house.sql.intellij.pipe.PipeExecuteInterceptor
+import dev.brikk.house.sql.intellij.pipe.PipeTranslation
+import dev.brikk.house.sql.intellij.pipe.lower
 import dev.brikk.house.sql.intellij.testing.RecordingConsole
+import dev.sort.trino.sql.TrinoSqlDialect
 
 /** Real console and platform preparation. Only the session and producer are recording doubles. */
 class TrinoPipesExecutionTest : BasePlatformTestCase() {
@@ -36,7 +39,7 @@ class TrinoPipesExecutionTest : BasePlatformTestCase() {
                 f.execute(variant)
                 assertEquals(f.notifications.map { it.content }.toString(), variant, f.requests.size)
                 val request = f.requests.last() as DataRequest.QueryRequest
-                assertEquals((TrinoPipesEngine.transpile(sql) as TrinoPipesEngine.Transpile.Ok).sql, request.query)
+                assertEquals((TrinoPipeDialect.lower(sql) as PipeTranslation.Lowered).sql, request.query)
                 assertSame(f.console, request.owner)
                 assertSame(f.editor, (request as DataRequest.CoupledWithEditor).editor)
                 assertEquals(sql, f.editor.document.text)
@@ -201,10 +204,11 @@ class TrinoPipesExecutionTest : BasePlatformTestCase() {
     fun testRunToFirstStage() {
         for (source in listOf("FROM offline_rows |> WHERE id > 0 |> LIMIT 2", "SELECT id FROM offline_rows |> WHERE id > 0 |> LIMIT 2")) Fixture(source).use { f ->
             f.editor.caretModel.moveToOffset(3)
-            assertNotNull("PIPE context missing for $source; language=${f.file.language}", TrinoPipesUi.chunk(f.file, f.editor))
+            val intention = RunPipesToStageIntention()
+            assertTrue("PIPE context missing for $source; language=${f.file.language}", intention.isAvailable(project, f.editor, f.file))
             assertNotNull("Console lookup missing for $source; valid=${f.console.isValid}",
                 com.intellij.database.console.JdbcConsoleProvider.getValidConsole(project, f.file.viewProvider.virtualFile))
-            TrinoPipesUi.runToStage(project, f.file, f.editor)
+            intention.invoke(project, f.editor, f.file)
             assertEquals("$source: ${f.notifications.map { it.content }}", 1, f.requests.size)
             val sql = (f.requests.single() as DataRequest.QueryRequest).query
             assertFalse("WHERE" in sql || "|>" in sql)
@@ -230,22 +234,6 @@ class TrinoPipesExecutionTest : BasePlatformTestCase() {
                 assertFalse(sql, "\${" in sql || "|>" in sql)
             }
         } finally { settings.userPatterns = saved; settings.patternCache.clear() }
-    }
-    fun testDuckdbShapedSecondConsumerUsesSharedPreparationWithoutTrinoPolicy() {
-        Fixture("FROM offline_rows |> SELECT id").use { f ->
-            val adapter = object : SqlExecutionAdapter {
-                override fun claims(text: String) = TrinoPipes.containsPipeOperator(text)
-                override fun translate(text: String, beforeSubstitution: Boolean): RenderedSql {
-                    val result = dev.brikk.house.sql.shape.SqlFragment(text, "duckdb").toExecutable("duckdb", pretty = true)
-                    return RenderedSql(result.sql, text)
-                }
-            }
-            val model = TranslatingScriptModel(f.console.scriptModel, f.editor, adapter)
-            model.finalizeTranslations(f.console.pStorage)
-            f.console.executeQueries(f.editor, model, selectionExecuteOption())
-            assertEquals(1, f.requests.size)
-            assertFalse((f.requests.single() as DataRequest.QueryRequest).query.contains("|>"))
-        }
     }
     private fun withOption(option: DatabaseSettings.ExecOption, action: () -> Unit) {
         val settings = DatabaseSettings.getSettings()
@@ -278,7 +266,7 @@ class TrinoPipesExecutionTest : BasePlatformTestCase() {
                 .add(CommonDataKeys.PROJECT, project).add(CommonDataKeys.EDITOR, editor).add(CommonDataKeys.PSI_FILE, file)
                 .add(CommonDataKeys.VIRTUAL_FILE, vf).add(SessionClientHolder.CLIENT_KEY, console).build())
             val previousAction = object : AnAction() { override fun actionPerformed(e: AnActionEvent) { previous.add(e) } }
-            CooperativeExecuteAction(if (variant == 4) -1 else variant, previousAction, ExecuteInterceptor(PipesExecuteInterceptor::handle), variant == 4).actionPerformed(e)
+            CooperativeExecuteAction(if (variant == 4) -1 else variant, previousAction, PipeExecuteInterceptor(TrinoPipeDialect), variant == 4).actionPerformed(e)
             return e
         }
         override fun close() {

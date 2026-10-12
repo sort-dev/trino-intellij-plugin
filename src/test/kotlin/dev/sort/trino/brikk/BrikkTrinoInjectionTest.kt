@@ -9,10 +9,12 @@ import com.intellij.refactoring.rename.RenameProcessor
 import com.intellij.sql.psi.SqlReferenceExpression
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.brikk.house.intellij.*
+import dev.brikk.house.sql.intellij.pipe.PipeExecuteInterceptor
+import dev.brikk.house.sql.intellij.pipe.isEditingEnabled
 import dev.sort.trino.pipes.*
-import org.jetbrains.kotlin.psi.KtStringTemplateExpression
-import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.idea.references.mainReference
+import org.jetbrains.kotlin.psi.KtNameReferenceExpression
+import org.jetbrains.kotlin.psi.KtStringTemplateExpression
 
 open class BrikkTrinoInjectionTest : BasePlatformTestCase() {
     override fun setUp() {
@@ -56,7 +58,7 @@ open class BrikkTrinoInjectionTest : BasePlatformTestCase() {
         val file = injected(host)
         assertTrue(file.text, "tenant = :tenant" in file.text)
         assertEquals(listOf("tenant"), BrikkTrinoProfile.forFile(file)!!.binds)
-        assertTrue(TrinoPipes.isEnabled(file))
+        assertTrue(TrinoPipeDialect.isEditingEnabled(file))
         assertFalse(project.service<TrinoPipesSettings>().enabled)
         assertEmpty(PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java))
         val reference = host.entries.mapNotNull { it.expression as? KtNameReferenceExpression }.single()
@@ -142,6 +144,20 @@ open class BrikkTrinoInjectionTest : BasePlatformTestCase() {
             if (old == null) System.clearProperty("trino.pipes") else System.setProperty("trino.pipes", old)
         }
     }
+    fun testPipesVetoDisablesBrikkEditingWithoutEnablingPreview() {
+        val file = injected(configure("@BrikkSql fun query() = Sql.trino(\"FROM t |> SELECT id\")"))
+        assertTrue(TrinoPipeDialect.isEditingEnabled(file))
+        assertTrue(TrinoPipeDialect.isInspectionHost(file))
+        assertFalse(TrinoPipeDialect.enablesPreview(file))
+        val previous = System.getProperty(TrinoPipeDialect.vetoProperty)
+        try {
+            System.setProperty(TrinoPipeDialect.vetoProperty, "false")
+            assertFalse(TrinoPipeDialect.isEditingEnabled(file))
+        } finally {
+            if (previous == null) System.clearProperty(TrinoPipeDialect.vetoProperty)
+            else System.setProperty(TrinoPipeDialect.vetoProperty, previous)
+        }
+    }
     private fun assertBrikkColumnsOffered() {
         val host = configure("""
             interface Events : Partial { val event_id: Long; val event_time: String }
@@ -174,7 +190,7 @@ open class BrikkTrinoInjectionTest : BasePlatformTestCase() {
                 .add(com.intellij.openapi.actionSystem.CommonDataKeys.PROJECT, project)
                 .add(com.intellij.openapi.actionSystem.CommonDataKeys.PSI_FILE, file).build())
         assertEquals(dev.brikk.house.sql.intellij.ExecutionClaim.HANDLED,
-            PipesExecuteInterceptor.handle(event, com.intellij.database.settings.DatabaseSettings.ExecOption()))
+            PipeExecuteInterceptor(TrinoPipeDialect).execute(event, com.intellij.database.settings.DatabaseSettings.ExecOption()))
         assertFalse(RunPipesToStageIntention().isAvailable(project, myFixture.editor, file))
         assertFalse(PreviewPipeSqlIntention().isAvailable(project, myFixture.editor, file))
     }

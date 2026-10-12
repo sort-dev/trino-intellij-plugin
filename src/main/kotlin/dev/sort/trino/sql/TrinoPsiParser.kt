@@ -9,11 +9,14 @@
 package dev.sort.trino.sql
 
 import com.intellij.lang.PsiBuilder
+import com.intellij.psi.impl.source.resolve.FileContextUtil
 import com.intellij.sql.dialects.postgres.PgParser
 import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_STATEMENT
-import com.intellij.psi.impl.source.resolve.FileContextUtil
-import dev.sort.trino.pipes.TrinoPipes
+import dev.brikk.house.sql.intellij.pipe.isEditingEnabled
+import dev.brikk.house.sql.intellij.pipe.isEnabled
+import dev.brikk.house.sql.parser.SqlStatementRange
 import dev.sort.trino.brikk.BrikkTrinoProfile
+import dev.sort.trino.pipes.TrinoPipeDialect
 
 /**
  * Trino statement parsing on the PG foundation, Tier-1 (statement boundaries).
@@ -39,19 +42,19 @@ import dev.sort.trino.brikk.BrikkTrinoProfile
  */
 class TrinoPsiParser : PgParser(false) {
     private var pipeText: CharSequence? = null
-    private var pipeChunks: List<TrinoPipes.Chunk> = emptyList()
+    private var pipeChunks: List<SqlStatementRange> = emptyList()
 
     override fun parseSqlStatement(builder: PsiBuilder, level: Int): Boolean {
         val file = builder.getUserData(FileContextUtil.CONTAINING_FILE_KEY)
-        if (file?.let { TrinoPipes.isEnabled(it) } ?: TrinoPipes.isEnabled(builder.project)) {
+        if (file?.let { TrinoPipeDialect.isEditingEnabled(it) } ?: (builder.project?.let { TrinoPipeDialect.isEnabled(it) } == true)) {
             if (pipeText !== builder.originalText) {
                 pipeText = builder.originalText
-                pipeChunks = TrinoPipes.chunks(builder.originalText.toString())
+                pipeChunks = TrinoPipeDialect.scriptRanges(builder.originalText.toString())
             }
-            val chunk = pipeChunks.firstOrNull { builder.currentOffset >= it.startOffset && builder.currentOffset < it.endOffset }
-            if (chunk?.hasPipeOperator == true || BrikkTrinoProfile.forFile(file) != null && wordAt(builder, 0) == "FROM") {
+            val chunk = pipeChunks.firstOrNull { builder.currentOffset >= it.start && builder.currentOffset < it.end }
+            if (chunk?.hasPipe == true || BrikkTrinoProfile.forFile(file) != null && wordAt(builder, 0) == "FROM") {
                 val marker = builder.mark()
-                val end = chunk?.endOffset ?: builder.originalText.length
+                val end = chunk?.end ?: builder.originalText.length
                 while (!builder.eof() && builder.currentOffset < end &&
                     !(chunk?.boundaryError == null && builder.tokenText == ";" && builder.currentOffset == end - 1)) {
                     if (!com.intellij.sql.dialects.base.SqlGeneratedParserUtil.parseUserParameter(builder, false, true)) builder.advanceLexer()

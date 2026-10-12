@@ -14,8 +14,14 @@ class TrinoPipesIsolationTest : BasePlatformTestCase() {
         val loader = plugin.pluginClassLoader!!
         assertEquals("com.intellij.ide.plugins.cl.PluginClassLoader", loader.javaClass.name)
         val fragment = loader.loadClass("dev.brikk.house.sql.shape.SqlFragment")
-        for (name in listOf(fragment.name, "dev.brikk.house.sql.intellij.CooperativeExecuteAction", "dev.brikk.house.intellij.ColumnContract"))
+        for (name in listOf(fragment.name, "dev.brikk.house.sql.intellij.CooperativeExecuteAction", "dev.brikk.house.intellij.ColumnContract",
+            "dev.brikk.house.sql.intellij.pipe.PipeDialect", "dev.brikk.house.sql.intellij.pipe.PipeExecuteInterceptor"))
             assertSame(name, loader, loader.loadClass(name).classLoader)
+        assertEquals("dev.brikk.house.sql.intellij.pipe.PipeStageCompletionContributor",
+            loader.loadClass("dev.sort.trino.pipes.TrinoPipesCompletionContributor").superclass.name)
+        val configuration = loader.loadClass("dev.sort.trino.pipes.TrinoPipesActionConfiguration").getConstructor().newInstance()
+        assertEquals("dev.brikk.house.sql.intellij.pipe.PipeExecuteInterceptor",
+            configuration.javaClass.getMethod("getInterceptor").invoke(configuration).javaClass.name)
         val value = fragment.getConstructor(String::class.java, String::class.java).newInstance("FROM t |> SELECT id |> LIMIT 1", "trino")
         val result = fragment.getMethod("toExecutable", String::class.java, Boolean::class.javaPrimitiveType, Boolean::class.javaPrimitiveType)
             .invoke(value, "trino", true, true)

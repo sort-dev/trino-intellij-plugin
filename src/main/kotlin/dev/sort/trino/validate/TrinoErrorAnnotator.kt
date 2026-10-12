@@ -3,6 +3,7 @@ package dev.sort.trino.validate
 import com.intellij.lang.annotation.AnnotationHolder
 import com.intellij.lang.annotation.ExternalAnnotator
 import com.intellij.lang.annotation.HighlightSeverity
+import com.intellij.lang.injection.InjectedLanguageManager
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.util.TextRange
@@ -10,15 +11,18 @@ import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiFile
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.sql.psi.SqlStatement
+import dev.brikk.house.sql.intellij.pipe.PipeText
+import dev.brikk.house.sql.intellij.pipe.PipeTranslation
+import dev.brikk.house.sql.intellij.pipe.containsPipe
+import dev.brikk.house.sql.intellij.pipe.isEditingEnabled
+import dev.brikk.house.sql.intellij.pipe.lower
+import dev.brikk.house.sql.intellij.recoverEditorOperation
+import dev.brikk.house.sql.parser.ParseError
+import dev.brikk.house.sql.shape.SqlFragment
+import dev.sort.trino.brikk.BrikkTrinoProfile
+import dev.sort.trino.pipes.TrinoPipeDialect
 import dev.sort.trino.sql.TrinoSqlDialect
 import io.trino.sql.parser.SqlParser
-import dev.sort.trino.pipes.TrinoPipes
-import dev.sort.trino.pipes.TrinoPipesEngine
-import dev.sort.trino.brikk.BrikkTrinoProfile
-import dev.brikk.house.sql.shape.SqlFragment
-import dev.brikk.house.sql.parser.ParseError
-import dev.brikk.house.sql.intellij.recoverEditorOperation
-import com.intellij.lang.injection.InjectedLanguageManager
 
 private val LOG = logger<TrinoErrorAnnotator>()
 
@@ -47,7 +51,8 @@ class TrinoErrorAnnotator : ExternalAnnotator<TrinoErrorAnnotator.Info, TrinoErr
 
     /** Engine-confirmed errors, pre-mapped to absolute document ranges + display messages. */
     data class Result(val errors: List<Pair<TextRange, String>>, val pipesEnabled: Boolean = false,
-                      val source: String? = null, val brikk: Boolean = false)
+                      val source: String? = null, val brikk: Boolean = false,
+                      val pipeErrors: List<Pair<TextRange, PipeTranslation.Refused>> = emptyList())
 
     // The default 3-arg variant returns null when the file has PSI errors — but broken-looking PSI
     // is exactly when the engine's opinion matters (the substrate can't parse Trino-only syntax,
@@ -60,13 +65,13 @@ class TrinoErrorAnnotator : ExternalAnnotator<TrinoErrorAnnotator.Info, TrinoErr
         val profile = BrikkTrinoProfile.forFile(file)
         if (profile != null) {
             val text = InjectedLanguageManager.getInstance(file.project).getUnescapedText(file)
-            return Info(listOf(TextRange(0, text.length) to text), TrinoPipes.isEnabled(file), text, profile)
+            return Info(listOf(TextRange(0, text.length) to text), TrinoPipeDialect.isEditingEnabled(file), text, profile)
         }
         val statements = PsiTreeUtil.findChildrenOfType(file, SqlStatement::class.java)
             .filterNot { it.parent is SqlStatement }        // top-level statements only
             .map { it.textRange to it.text }
             .filter { hasSql(it.second) }                   // skip empty / comment-only spans
-        return if (statements.isEmpty()) null else Info(statements, TrinoPipes.isEnabled(file), file.text)
+        return if (statements.isEmpty()) null else Info(statements, TrinoPipeDialect.isEditingEnabled(file), file.text)
     }
 
     override fun doAnnotate(collectedInfo: Info?): Result? {
@@ -75,6 +80,7 @@ class TrinoErrorAnnotator : ExternalAnnotator<TrinoErrorAnnotator.Info, TrinoErr
             val parser = SqlParser()                        // one per pass (stateless, but cheap)
             val deadline = System.nanoTime() + TIME_BUDGET_NANOS
             val errors = ArrayList<Pair<TextRange, String>>()
+            val pipeErrors = ArrayList<Pair<TextRange, PipeTranslation.Refused>>()
             for ((range, text) in info.statements) {
                 if (System.nanoTime() > deadline) break     // belt+braces whole-file time-box
                 if (text.length > MAX_STATEMENT_LEN) continue
@@ -92,19 +98,16 @@ class TrinoErrorAnnotator : ExternalAnnotator<TrinoErrorAnnotator.Info, TrinoErr
                     }
                     continue
                 }
-                if (info.pipesEnabled && TrinoPipes.containsPipeOperator(text)) {
-                    val translated = recoverEditorOperation { TrinoPipesEngine.transpile(text) }.getOrElse {
-                        TrinoPipesEngine.Transpile.Err(null, null, "PIPE validation failed: ${it.message}")
+                if (info.pipesEnabled && TrinoPipeDialect.containsPipe(text)) {
+                    val translated = recoverEditorOperation { TrinoPipeDialect.lower(text) }.getOrElse {
+                        PipeTranslation.Refused(null, "PIPE validation failed: ${it.message}")
                     }
                     val error = when (translated) {
-                        is TrinoPipesEngine.Transpile.Err -> translated
-                        is TrinoPipesEngine.Transpile.Ok -> translated.executionError
+                        is PipeTranslation.Refused -> translated
+                        is PipeTranslation.Lowered -> translated.blocker?.let { PipeTranslation.Refused(null, it) }
                         else -> null
                     }
-                    if (error != null) {
-                        val offset = range.startOffset + engineOffset(text, error.line, error.col)
-                        errors.add(TextRange(offset, (offset + 1).coerceAtMost(range.endOffset)) to "Trino PIPE: ${error.message}")
-                    }
+                    if (error != null) pipeErrors.add(range to error)
                     continue
                 }
                 val error = recoverEditorOperation {
@@ -115,7 +118,7 @@ class TrinoErrorAnnotator : ExternalAnnotator<TrinoErrorAnnotator.Info, TrinoErr
                 } ?: continue
                 errors.add(tokenRange(text, range.startOffset, error) to "Trino: ${error.message}")
             }
-            Result(errors, info.pipesEnabled, info.source, info.brikk != null)
+            Result(errors, info.pipesEnabled, info.source, info.brikk != null, pipeErrors)
         }.getOrElse { t ->
             LOG.warn("TrinoErrorAnnotator.doAnnotate failed; suppressing annotations this pass", t)
             null
@@ -126,11 +129,16 @@ class TrinoErrorAnnotator : ExternalAnnotator<TrinoErrorAnnotator.Info, TrinoErr
         val result = annotationResult ?: return
         if (result.source != null) {
             val current = if (result.brikk) InjectedLanguageManager.getInstance(file.project).getUnescapedText(file) else file.text
-            if (current != result.source || result.pipesEnabled != TrinoPipes.isEnabled(file)) return
+            if (current != result.source || result.pipesEnabled != TrinoPipeDialect.isEditingEnabled(file)) return
         }
         val docLen = PsiDocumentManager.getInstance(file.project).getDocument(file)?.textLength
             ?: file.textLength
-        for ((rawRange, message) in result.errors) {
+        val source = PipeText.of(file)
+        val pipeErrors = result.pipeErrors.mapNotNull { (statement, error) ->
+            val text = source.text.substring(statement.startOffset, statement.endOffset)
+            source.errorRange(statement.startOffset, text, error.range)?.let { it to "${TrinoPipeDialect.label}: ${error.message}" }
+        }
+        for ((rawRange, message) in result.errors + pipeErrors) {
             val range = if (result.brikk) {
                 val manager = InjectedLanguageManager.getInstance(file.project)
                 val mapped = TextRange(manager.mapUnescapedOffsetToInjected(file, rawRange.startOffset),

@@ -1,8 +1,10 @@
 package dev.sort.trino.pipes
 
+import dev.brikk.house.sql.intellij.pipe.PipeTranslation
+import dev.brikk.house.sql.intellij.pipe.lower
+import java.sql.DriverManager
 import org.junit.Assume.assumeTrue
 import org.junit.Test
-import java.sql.DriverManager
 import kotlin.test.*
 
 class TrinoPipesLiveTest {
@@ -26,8 +28,8 @@ class TrinoPipesLiveTest {
                     "SELECT o.orderkey, c.custkey FROM tpch.tiny.orders o LEFT JOIN tpch.tiny.customer c ON o.custkey=c.custkey WHERE o.orderkey < 4 ORDER BY o.orderkey",
             )
             for ((pipe, native) in cases) {
-                val result = assertIs<TrinoPipesEngine.Transpile.Ok>(TrinoPipesEngine.transpile(pipe, beforeSubstitution = false))
-                assertNull(result.executionError)
+                val result = assertIs<PipeTranslation.Lowered>(TrinoPipeDialect.lower(pipe, substituted = true))
+                assertNull(result.blocker)
                 assertEquals(rows(native), rows(result.sql), "$pipe\n${result.sql}")
             }
         }

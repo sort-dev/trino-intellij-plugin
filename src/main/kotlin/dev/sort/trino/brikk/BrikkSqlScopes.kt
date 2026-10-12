@@ -3,8 +3,8 @@ package dev.sort.trino.brikk
 import dev.brikk.house.intellij.*
 import dev.brikk.house.sql.ast.*
 import dev.brikk.house.sql.generator.SourceMap
+import dev.brikk.house.sql.intellij.recoverEditorOperation
 import dev.brikk.house.sql.shape.SqlFragment
-import dev.sort.trino.pipes.runPipeCatching
 import java.util.IdentityHashMap
 
 /** Trino editing adapter over core ASTs and copied input contracts. No project-wide SQL schema. */
@@ -30,7 +30,7 @@ object BrikkSqlScopes {
     data class Analysis(val references: List<Reference>) {
         fun at(offset: Int): Reference? = references.filter { offset >= it.start && offset < it.end }.minByOrNull { it.end - it.start }
     }
-    fun analyze(sql: String, contracts: Map<String, ShapeResult>): Analysis? = runPipeCatching {
+    fun analyze(sql: String, contracts: Map<String, ShapeResult>): Analysis? = recoverEditorOperation {
         Analyzer(contracts).analyze(SqlFragment(sql, "trino").ast)
     }.getOrNull()
 
