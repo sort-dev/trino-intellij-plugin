@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineScope
 object TrinoExecutionObserverProfile : ExecutionObserverProfile {
     override val dbms = TrinoDbms.TRINO_BRIKK
     override val statements = StatementHeadDetector(StatementRules.TRINO, "trino")
+    override val transactionStatements = StatementRules.TRINO_TRANSACTIONS
     override val autoIntrospect = TrinoAutoIntrospectService::class.java
 }
 

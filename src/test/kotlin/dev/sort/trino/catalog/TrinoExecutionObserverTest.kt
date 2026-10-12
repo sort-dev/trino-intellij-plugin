@@ -10,11 +10,16 @@ import com.intellij.database.util.ObjectPath
 import com.intellij.database.util.SearchPath
 import com.intellij.database.model.ObjectKind
 import com.intellij.openapi.components.service
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.RunAll
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.testFramework.registerOrReplaceServiceInstance
 import dev.brikk.house.sql.intellij.catalog.AutoIntrospectEngine
+import dev.brikk.house.sql.intellij.catalog.ExecutionObserver
+import dev.brikk.house.sql.intellij.catalog.ExecutionObserverProfile
+import dev.brikk.house.sql.intellij.catalog.LiveCatalogService
+import dev.brikk.house.sql.intellij.catalog.StatementRules
 import dev.brikk.house.sql.intellij.testing.BackgroundErrors
 import dev.brikk.house.sql.intellij.testing.HeldIntrospections
 import dev.brikk.house.sql.intellij.testing.RecordingConsole
@@ -104,6 +109,39 @@ class TrinoExecutionObserverTest : BasePlatformTestCase() {
         errors.awaitScopes()
         introspections.assertNone()
         assertNull(TrinoExecutionObserverProfile.liveCatalog)
+    }
+
+    fun testRoutineBodiesDoNotEndAnExplicitTrinoTransaction() {
+        assertSame(StatementRules.TRINO_TRANSACTIONS, TrinoExecutionObserverProfile.transactionStatements)
+        val live = TrinoLiveCatalogService(errors.newScope(testRootDisposable))
+        ApplicationManager.getApplication().registerOrReplaceServiceInstance(TrinoLiveCatalogService::class.java, live, testRootDisposable)
+        val tracking = object : ExecutionObserver(project, errors.newScope(testRootDisposable)) {
+            override val profile = object : ExecutionObserverProfile by TrinoExecutionObserverProfile {
+                override val liveCatalog = TrinoLiveCatalogService::class.java
+            }
+        }
+        val transactions = LiveCatalogService::class.java.getDeclaredField("explicitTransactions").apply { isAccessible = true }.get(live) as Set<*>
+        val session = recording.console.session
+        fun run(sql: String) {
+            val console = recording.console
+            val query = object : DataRequest.QueryRequest(console, sql, DataRequest.newConstraints(), null) {}
+            tracking.requestFinished(DataRequest.Context(console.session.messageBus.dataProducer, DataRequest.newOutputHandler(), query, DataRequest.AUTO_COMMIT))
+        }
+        assertFalse(transactions.contains(session))
+        run("START TRANSACTION")
+        assertTrue(transactions.contains(session))
+        run("CREATE FUNCTION f() RETURNS bigint BEGIN RETURN 1; END")
+        assertTrue(transactions.contains(session))
+        run("BEGIN; END")
+        assertTrue(transactions.contains(session))
+        run("COMMIT")
+        assertFalse(transactions.contains(session))
+        run("CREATE FUNCTION f() RETURNS bigint BEGIN RETURN 1; END")
+        assertFalse(transactions.contains(session))
+        run("START TRANSACTION; CREATE FUNCTION f() RETURNS bigint BEGIN RETURN 1; END")
+        assertTrue(transactions.contains(session))
+        run("ROLLBACK")
+        assertFalse(transactions.contains(session))
     }
 
     private fun execute(sql: String) {
