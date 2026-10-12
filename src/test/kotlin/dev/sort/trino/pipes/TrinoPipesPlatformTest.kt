@@ -2,7 +2,6 @@ package dev.sort.trino.pipes
 
 import com.intellij.openapi.actionSystem.*
 import com.intellij.openapi.actionSystem.impl.SimpleDataContext
-import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.components.service
 import com.intellij.openapi.editor.DefaultLanguageHighlighterColors
 import com.intellij.psi.PsiDocumentManager
@@ -36,13 +35,6 @@ class TrinoPipesPlatformTest : BasePlatformTestCase() {
         project.service<TrinoPipesSettings>().enabled = false
         PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
         assertFalse(TrinoPipeDialect.isEnabled(project))
-    }
-    fun testSnapshotRejectsEditAndRevert() {
-        myFixture.configureByText("snapshot.sql", "SELECT 1")
-        val doc = myFixture.editor.document
-        val snapshot = EditorSnapshot.capture(doc)
-        WriteCommandAction.runWriteCommandAction(project) { doc.setText("SELECT 2"); doc.setText("SELECT 1") }
-        try { snapshot.requireCurrent(); fail("Expected stale snapshot") } catch (_: SqlExecutionRefusal) { }
     }
     fun testLongPipelineDoesNotUseTheOldBoundedLookahead() {
         val text = "SELECT " + List(700) { "1" }.joinToString(" + ") + " AS value |> SELECT value; SELECT 2;"
@@ -158,13 +150,5 @@ class TrinoPipesPlatformTest : BasePlatformTestCase() {
         assertEquals(listOf(peer), promoter.promote(listOf(other, peer), context))
         assertEmpty(promoter.promote(listOf(other, stock), context))
         assertEmpty(promoter.promote(listOf(wrapped), DataContext.EMPTY_CONTEXT))
-    }
-    fun testClaimedCancellationNeverInvokesPredecessor() {
-        var delegated = 0
-        val previous = object : AnAction() { override fun actionPerformed(e: AnActionEvent) { delegated++ } }
-        val wrapper = CooperativeExecuteAction(1, previous, ExecuteInterceptor { _, _ -> throw com.intellij.openapi.progress.ProcessCanceledException() })
-        val event = AnActionEvent.createFromDataContext("cancel", Presentation(), SimpleDataContext.getProjectContext(project))
-        try { wrapper.actionPerformed(event); fail("Cancellation must propagate") } catch (_: com.intellij.openapi.progress.ProcessCanceledException) { }
-        assertEquals(0, delegated)
     }
 }

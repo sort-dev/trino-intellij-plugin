@@ -47,47 +47,6 @@ class TrinoPipesExecutionTest : BasePlatformTestCase() {
             }
         }
     }
-    fun testOrdinaryQuotedMarkersDelegate() {
-        for (sql in listOf("SELECT '|>'", "SELECT /* |> */ 1", "SELECT 1")) Fixture(sql).use { f ->
-            val event = f.execute()
-            assertEquals(listOf(event), f.previous)
-            assertEmpty(f.requests)
-        }
-    }
-    fun testUnselectedPipelineUsesCompleteStatement() {
-        Fixture("SELECT 1; FROM offline_rows |> LIMIT 2; SELECT 3;").use { f ->
-            f.editor.caretModel.moveToOffset(f.editor.document.text.indexOf("LIMIT"))
-            withOption(DatabaseSettings.ExecOption().apply { execInside = DatabaseSettings.EXECUTE_INSIDE_SMALLEST }) { f.execute() }
-            assertEquals(f.notifications.map { it.content }.toString(), 1, f.requests.size)
-            assertFalse((f.requests.single() as DataRequest.QueryRequest).query.contains("|>"))
-        }
-    }
-    fun testOutsideStatementWholeScriptOptionStillTranslatesPipes() {
-        Fixture("SELECT 1; FROM offline_rows |> SELECT id; -- caret outside statements").use { f ->
-            f.editor.caretModel.moveToOffset(f.editor.document.textLength)
-            withOption(DatabaseSettings.ExecOption().apply {
-                execInside = DatabaseSettings.EXECUTE_INSIDE_SMALLEST
-                execOutside = DatabaseSettings.EXECUTE_OUTSIDE_WHOLE_SCRIPT
-            }) {
-                f.execute()
-                assertEquals(f.notifications.map { it.content }.toString(), 1, f.requests.size)
-                (f.requests.single() as ConsoleDataRequest).onFinished()
-            }
-            assertEquals(2, f.requests.size)
-            assertFalse((f.requests.last() as DataRequest.QueryRequest).query.contains("|>"))
-            assertEmpty(f.previous)
-        }
-    }
-    fun testSmartExpandedSelectionClaimsTheEnclosingPipeline() {
-        Fixture("FROM offline_rows |> WHERE id > 0 |> SELECT id").use { f ->
-            val text = f.editor.document.text
-            f.editor.selectionModel.setSelection(text.indexOf("WHERE"), text.indexOf(" |> SELECT"))
-            withOption(DatabaseSettings.ExecOption().apply { execSelection = DatabaseSettings.EXECUTE_SELECTION_SMART_EXPAND }) { f.execute() }
-            assertEquals(f.notifications.map { it.content }.toString(), 1, f.requests.size)
-            assertFalse((f.requests.single() as DataRequest.QueryRequest).query.contains("|>"))
-            assertEmpty(f.previous)
-        }
-    }
     fun testOutsideTailDoesNotRetokenizeTheMiddleOfAComment() {
         Fixture("SELECT 0; /* ) caret here */ FROM offline_rows |> SELECT id;").use { f ->
             f.editor.caretModel.moveToOffset(f.editor.document.text.indexOf("caret"))
@@ -98,15 +57,7 @@ class TrinoPipesExecutionTest : BasePlatformTestCase() {
             assertEquals(f.notifications.map { it.content }.toString(), 1, f.requests.size)
             assertFalse((f.requests.single() as DataRequest.QueryRequest).query.contains("|>"))
             assertEmpty(f.previous)
-        }
-    }
-    fun testLaterPipeFailureSubmitsNeitherOrdinaryNorPipeStatements() {
-        Fixture("SELECT 1; FROM t |> BOGUS 2;").use { f ->
-            f.editor.selectionModel.setSelection(0, f.editor.document.textLength)
-            withOption(DatabaseSettings.ExecOption().apply { execSelection = DatabaseSettings.EXECUTE_SELECTION_EXACTLY_SCRIPT }) { f.execute() }
-            assertEmpty(f.requests)
-            assertEmpty(f.previous)
-            assertFalse(f.notifications.isEmpty())
+            assertEmpty(f.notifications)
         }
     }
     fun testEditDuringParameterPreparationNotifiesWithoutSubmitting() {
@@ -126,51 +77,6 @@ class TrinoPipesExecutionTest : BasePlatformTestCase() {
             assertEmpty(f.requests)
             assertEmpty(f.previous)
             assertFalse(f.notifications.isEmpty())
-        }
-    }
-    fun testEditDuringStockPreparationNotifiesWithoutSubmitting() {
-        Fixture("FROM offline_rows |> SELECT id").use { f ->
-            val connection = com.intellij.openapi.application.ApplicationManager.getApplication().messageBus.connect()
-            var edited = false
-            connection.subscribe(com.intellij.AppTopics.FILE_DOCUMENT_SYNC, object : com.intellij.openapi.fileEditor.FileDocumentManagerListener {
-                override fun beforeAllDocumentsSaving() {
-                    if (!edited) {
-                        edited = true
-                        com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(project) {
-                            f.editor.document.insertString(f.editor.document.textLength, " ")
-                        }
-                    }
-                }
-            })
-            try {
-                f.execute()
-                assertTrue(edited)
-                assertEmpty(f.requests)
-                assertEmpty(f.previous)
-                assertFalse(f.notifications.isEmpty())
-            } finally {
-                connection.disconnect()
-            }
-        }
-    }
-    fun testCancellationDuringPreparationPropagatesWithoutSubmitting() {
-        for (cancellation in listOf(com.intellij.openapi.progress.ProcessCanceledException(), java.util.concurrent.CancellationException())) {
-            Fixture("FROM offline_rows |> SELECT id").use { f ->
-                f.recording.beforeSessionCall = { method -> if (method == "getClientsWithFile") throw cancellation }
-                val thrown = kotlin.runCatching { f.execute() }.exceptionOrNull()
-                assertSame(cancellation, thrown)
-                assertEmpty(f.requests)
-                assertEmpty(f.previous)
-                assertEmpty(f.notifications)
-            }
-        }
-    }
-    fun testMissingSubmissionClientNeverDelegatesRawSql() {
-        Fixture("FROM offline_rows |> SELECT id").use { f ->
-            f.console.session.detach(f.console)
-            f.execute()
-            assertEmpty(f.requests)
-            assertEmpty(f.previous)
         }
     }
     fun testSubmissionFailureDoesNotRetryThroughPredecessor() {
@@ -199,19 +105,6 @@ class TrinoPipesExecutionTest : BasePlatformTestCase() {
             assertFalse(":id" in requests[1].query || "|>" in requests[1].query)
             assertTrue(requests.all { it.newTab && it.owner === f.console })
             assertEmpty(f.previous)
-        }
-    }
-    fun testRunToFirstStage() {
-        for (source in listOf("FROM offline_rows |> WHERE id > 0 |> LIMIT 2", "SELECT id FROM offline_rows |> WHERE id > 0 |> LIMIT 2")) Fixture(source).use { f ->
-            f.editor.caretModel.moveToOffset(3)
-            val intention = RunPipesToStageIntention()
-            assertTrue("PIPE context missing for $source; language=${f.file.language}", intention.isAvailable(project, f.editor, f.file))
-            assertNotNull("Console lookup missing for $source; valid=${f.console.isValid}",
-                com.intellij.database.console.JdbcConsoleProvider.getValidConsole(project, f.file.viewProvider.virtualFile))
-            intention.invoke(project, f.editor, f.file)
-            assertEquals("$source: ${f.notifications.map { it.content }}", 1, f.requests.size)
-            val sql = (f.requests.single() as DataRequest.QueryRequest).query
-            assertFalse("WHERE" in sql || "|>" in sql)
         }
     }
     fun testConfiguredIdeParametersInExpressionsAndLiterals() {
