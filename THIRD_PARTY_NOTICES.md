@@ -2,8 +2,8 @@
 
 ## Embedded Brikk libraries
 
-The plugin bundles `dev.brikk.house:brikk-sql-jvm:0.19.1` and matching
-`brikk-sql-metadata-jvm:0.19.1`, `brikk-sql-intellij-support:0.1.1`, and
+The plugin bundles `dev.brikk.house:brikk-sql-jvm:0.20.0-SNAPSHOT` and matching
+`brikk-sql-metadata-jvm:0.20.0-SNAPSHOT`, `brikk-sql-intellij-support:0.2.0-SNAPSHOT`, and
 `brikk-engine-kotlin-intellij-support:0.2.0`, Copyright Brikk / Sortdev SRL,
 under the Apache License 2.0. Exact versions are declared in build.gradle.kts
 and checked in the final distribution. The IntelliJ helpers include their notices.
