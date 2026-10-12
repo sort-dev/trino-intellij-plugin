@@ -107,7 +107,8 @@
     <extensions defaultExtensionNs="com.intellij">
         <sql.resolveExtension implementation="dev.sort.trino.brikk.BrikkSqlResolveExtension"/>
         <sql.inspectionSuppressorDelegate implementation="dev.sort.trino.brikk.BrikkSqlInspectionSuppressor"/>
-        <completion.contributor language="TrinoSQL" implementationClass="dev.sort.trino.pipes.TrinoPipesCompletionContributor" order="first"/>
+        <completion.contributor language="TrinoSQL" implementationClass="dev.sort.trino.pipes.TrinoPipesCompletionContributor" order="first, before trino.metadata"/>
+        <completion.contributor language="TrinoSQL" implementationClass="dev.sort.trino.sql.TrinoMetadataCompletionContributor" id="trino.metadata" order="first"/>
         <completion.contributor language="TrinoSQL" implementationClass="dev.sort.trino.brikk.BrikkSqlCompletionContributor"/>
         <annotator language="TrinoSQL" implementationClass="dev.sort.trino.pipes.TrinoPipeStageKeywordAnnotator"/>
         <annotator language="TrinoSQL" implementationClass="dev.sort.trino.brikk.BrikkSqlContractAnnotator"/>
@@ -130,11 +131,6 @@
              the truth — Trino's own grammar, version-exact, on any mapped file (no engine, no data
              source needed: the authority is on the classpath, unlike duckdb's driver-jar path). -->
         <externalAnnotator language="TrinoSQL" implementationClass="dev.sort.trino.validate.TrinoErrorAnnotator"/>
-        <!-- Stage-3 function/keyword completion from the bundled catalog (SHOW FUNCTIONS +
-             ReservedIdentifiers). The language attribute IS the scope — the contributor must NOT
-             use a withLanguage(...) pattern (it wouldn't match the completion-position leaf and the
-             provider would go silently dead; duckdb bisect). The SAME contributor also carries the
-             lazy schema-tree deepening trigger (QualifiedPathIntrospectProvider). -->
         <completion.contributor language="TrinoSQL"
                                  implementationClass="dev.sort.trino.sql.TrinoCompletionContributor"/>
         <!-- Banner while a lazy introspection kicked by completion is in flight: the async model

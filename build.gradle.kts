@@ -69,20 +69,7 @@ sourceSets {
 }
 
 dependencies {
-    "toolsImplementation"(libs.trino.jdbc)
     "toolsImplementation"(libs.trino.parser)
-}
-
-// Usage: ./gradlew harvestFunctionCatalog -Ptrino.harvest.url='jdbc:trino://localhost:18080?sessionUser=harvest'
-// Regenerates the bundled function/keyword catalog resources from a live Trino (SHOW FUNCTIONS).
-// Commit the output.
-val harvestFunctionCatalog by tasks.registering(JavaExec::class) {
-    classpath = sourceSets["tools"].runtimeClasspath
-    mainClass = "dev.sort.trino.tools.FunctionCatalogHarvestKt"
-    args(
-        providers.gradleProperty("trino.harvest.url").getOrElse("jdbc:trino://localhost:18080?sessionUser=harvest"),
-        layout.projectDirectory.dir("src/main/resources/trino").asFile.absolutePath,
-    )
 }
 
 // Usage: ./gradlew harvestCensus [-PtrinoSrc=/path/to/trino-checkout-at-483]
