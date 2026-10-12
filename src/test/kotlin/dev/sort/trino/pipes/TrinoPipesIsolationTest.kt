@@ -32,7 +32,9 @@ class TrinoPipesIsolationTest : BasePlatformTestCase() {
             "dev.brikk.house.sql.intellij.catalog.IntrospectBannerProvider", "dev.brikk.house.sql.intellij.catalog.QualifiedPathIntrospectContributor",
             "dev.brikk.house.sql.intellij.catalog.TrinoFunctionHarvester", "dev.brikk.house.sql.intellij.catalog.TrinoLiveCatalogProfile",
             "dev.brikk.house.sql.intellij.catalog.LiveCatalogService", "dev.brikk.house.sql.intellij.catalog.HarvestConnectionInterceptor",
-            "dev.brikk.house.sql.intellij.catalog.LiveCatalogCleanup", "dev.brikk.house.sql.intellij.catalog.LiveCatalogStore"))
+            "dev.brikk.house.sql.intellij.catalog.LiveCatalogCleanup", "dev.brikk.house.sql.intellij.catalog.LiveCatalogStore",
+            "dev.brikk.house.sql.intellij.catalog.ExecutionObserver", "dev.brikk.house.sql.intellij.catalog.ExecutionObserverProfile",
+            "dev.brikk.house.sql.intellij.catalog.ExecutionObserverStartup", "dev.brikk.house.sql.intellij.catalog.StatementHeadDetector"))
             assertSame(name, loader, loader.loadClass(name).classLoader)
         assertEquals("dev.brikk.house.sql.intellij.lexer.MaskingSqlLexer",
             loader.loadClass("dev.sort.trino.sql.TrinoLexer").superclass.name)
@@ -49,6 +51,8 @@ class TrinoPipesIsolationTest : BasePlatformTestCase() {
             "TrinoLiveCatalogService" to "LiveCatalogService",
             "TrinoHarvestConnectionInterceptor" to "HarvestConnectionInterceptor",
             "TrinoLiveCatalogCleanup" to "LiveCatalogCleanup",
+            "TrinoExecutionObserver" to "ExecutionObserver",
+            "TrinoExecutionObserverStartup" to "ExecutionObserverStartup",
         )) {
             val type = loader.loadClass("dev.sort.trino.catalog.$consumer")
             assertSame(loader, type.classLoader)
@@ -59,6 +63,13 @@ class TrinoPipesIsolationTest : BasePlatformTestCase() {
         assertSame(loader, service.javaClass.classLoader)
         val profile = serviceType.getMethod("getProfile").invoke(service)
         assertSame(loader.loadClass("dev.sort.trino.catalog.TrinoCatalogProfile").getField("INSTANCE").get(null), profile)
+        val observerType = loader.loadClass("dev.sort.trino.catalog.TrinoExecutionObserver")
+        val observer = project.getService(observerType)
+        assertSame(loader, observer.javaClass.classLoader)
+        val observerProfile = observerType.getMethod("getProfile").invoke(observer)
+        assertSame(loader.loadClass("dev.sort.trino.catalog.TrinoExecutionObserverProfile").getField("INSTANCE").get(null), observerProfile)
+        assertSame(serviceType, observerProfile.javaClass.getMethod("getAutoIntrospect").invoke(observerProfile))
+        assertNull(observerProfile.javaClass.getMethod("getLiveCatalog").invoke(observerProfile))
         val registry = loader.loadClass("dev.brikk.house.sql.intellij.dialect.SqlDialectRegistry")
         val registryInstance = registry.getField("INSTANCE").get(null)
         val entry = registry.getMethod("forLanguageId", String::class.java).invoke(registryInstance, "TrinoSQL")!!

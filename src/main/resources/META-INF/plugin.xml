@@ -105,6 +105,7 @@
     <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="/META-INF/trino-pipes.xml" xpointer="xpointer(/idea-plugin/*)"/>
 
     <extensions defaultExtensionNs="com.intellij">
+        <postStartupActivity implementation="dev.sort.trino.catalog.TrinoExecutionObserverStartup"/>
         <sql.resolveExtension implementation="dev.sort.trino.brikk.BrikkSqlResolveExtension"/>
         <sql.inspectionSuppressorDelegate implementation="dev.sort.trino.brikk.BrikkSqlInspectionSuppressor"/>
         <completion.contributor language="TrinoSQL" implementationClass="dev.sort.trino.pipes.TrinoPipesCompletionContributor" order="first, before trino.metadata"/>
