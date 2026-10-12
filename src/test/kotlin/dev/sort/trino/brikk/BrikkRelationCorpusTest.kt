@@ -34,7 +34,9 @@ import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 import dev.sort.trino.TrinoDbms
 import dev.sort.trino.sql.TrinoSqlDialect
 import dev.sort.trino.pipes.TrinoPipesSettings
-import dev.sort.trino.validate.TrinoStatementValidator
+import dev.sort.trino.validate.TrinoNativeValidation
+import dev.sort.trino.validate.nativeErrors
+import dev.brikk.house.sql.verify.VerifyResult
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlinx.serialization.json.*
@@ -173,10 +175,11 @@ class BrikkRelationCorpusTest : BasePlatformTestCase() {
                 put("id", id); put("input", sql); put("axes", JsonArray(axes))
                 case["engine"]?.jsonObject?.let { witness ->
                     put("authoredDuckdbWitness", witness)
-                    val error = TrinoStatementValidator.parse(witness.string("sql"))
+                    val verdict = TrinoNativeValidation.verify(witness.string("sql"))
+                    val error = verdict.nativeErrors().firstOrNull()
                     put("trinoWitnessSyntax", buildJsonObject {
-                        put("parserOnly", true); put("accepted", error == null)
-                        error?.let { put("line", it.line); put("column", it.column); put("message", it.message) }
+                        put("parserOnly", true); put("accepted", verdict == VerifyResult.Accepted)
+                        error?.let { put("line", it.line?.let(::JsonPrimitive) ?: JsonNull); put("column", it.column?.let(::JsonPrimitive) ?: JsonNull); put("message", it.message) }
                     })
                 }
             }

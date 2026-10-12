@@ -10,7 +10,8 @@ import dev.brikk.house.sql.generator.UnsupportedError
 import dev.brikk.house.sql.shape.Shape
 import dev.brikk.house.sql.shape.ShapeCatalog
 import dev.brikk.house.sql.shape.SqlFragment
-import dev.sort.trino.validate.TrinoStatementValidator
+import dev.brikk.house.sql.verify.VerifyResult
+import dev.sort.trino.validate.TrinoNativeValidation
 import org.junit.Test
 import kotlin.test.*
 
@@ -33,7 +34,7 @@ class TrinoPipesEngineTest {
             assertNull(result.blocker, "$sql: ${result.blocker}")
             assertSame(NativeVerdict.Accepted, result.verdict)
             assertFalse(TrinoPipeDialect.containsPipe(result.sql))
-            assertNull(TrinoStatementValidator.parse(result.sql))
+            assertSame(VerifyResult.Accepted, TrinoNativeValidation.verify(result.sql))
             assertNotNull(result.result.sourceMap)
         }
     }
@@ -102,7 +103,7 @@ class TrinoPipesEngineTest {
             val sql = SqlFragment("FROM t |> $stage", "trino").toStandardSql("trino", layout, expandStars = true)
             assertFalse("* EXCEPT" in sql || "* REPLACE" in sql || "* RENAME" in sql, sql)
             assertEquals(columns, SqlFragment(sql, "trino").outputShape(layout).names(), sql)
-            assertNull(TrinoStatementValidator.parse(sql), sql)
+            assertSame(VerifyResult.Accepted, TrinoNativeValidation.verify(sql), sql)
         }
     }
 }

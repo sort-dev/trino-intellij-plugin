@@ -18,10 +18,10 @@ import dev.brikk.house.sql.intellij.pipe.lower
 import dev.brikk.house.sql.intellij.recoverEditorOperation
 import dev.brikk.house.sql.parser.ParseError
 import dev.brikk.house.sql.shape.SqlFragment
+import dev.brikk.house.sql.verify.VerifyError
 import dev.sort.trino.brikk.BrikkTrinoProfile
 import dev.sort.trino.pipes.TrinoPipeDialect
 import dev.sort.trino.sql.TrinoSqlDialect
-import io.trino.sql.parser.SqlParser
 
 private val LOG = logger<TrinoErrorAnnotator>()
 
@@ -83,7 +83,6 @@ class TrinoErrorAnnotator : ExternalAnnotator<TrinoErrorAnnotator.Info, TrinoErr
     override fun doAnnotate(collectedInfo: Info?): Result? {
         val info = collectedInfo ?: return null
         return recoverEditorOperation {
-            val parser = SqlParser()                        // one per pass (stateless, but cheap)
             val deadline = System.nanoTime() + TIME_BUDGET_NANOS
             val errors = ArrayList<Pair<TextRange, String>>()
             val pipeErrors = ArrayList<Pair<TextRange, PipeTranslation.Refused>>()
@@ -117,13 +116,15 @@ class TrinoErrorAnnotator : ExternalAnnotator<TrinoErrorAnnotator.Info, TrinoErr
                     if (error != null) pipeErrors.add(range to error)
                     continue
                 }
-                val error = recoverEditorOperation {
-                    TrinoStatementValidator.parse(text, parser)
+                val verdict = recoverEditorOperation {
+                    TrinoNativeValidation.verify(text)
                 }.getOrElse { t ->
-                    LOG.warn("trino-parser threw validating a statement; skipping it", t)
+                    LOG.warn("TrinoVerifier threw validating a statement; skipping it", t)
                     null
                 } ?: continue
-                errors.add(tokenRange(text, range.startOffset, error) to "Trino: ${error.message}")
+                for (error in verdict.nativeErrors()) {
+                    errors.add(tokenRange(text, range.startOffset, error) to "Trino: ${error.message}")
+                }
             }
             Result(errors, info.pipesEnabled, info.source, pipeErrors)
         }.getOrElse { t ->
@@ -164,24 +165,26 @@ class TrinoErrorAnnotator : ExternalAnnotator<TrinoErrorAnnotator.Info, TrinoErr
 
     /**
      * Absolute document range for [error] within a statement whose exact text is [text] beginning
-     * at [statementStart]: map the 1-based line/column to an offset, then extend FORWARD across the
+     * at [statementStart]: use the native UTF-16 offset, then extend FORWARD across the
      * token (letters/digits/underscore). Falls back to a single character when the caret sits on
      * punctuation, and to the statement's last character when it points at end-of-input (unclosed
      * constructs report `'<EOF>'`). Purely over [text], so the range needs no document access.
      */
-    private fun tokenRange(text: String, statementStart: Int, error: TrinoStatementValidator.ParseError): TextRange {
-        val within = (TrinoStatementValidator.offsetOf(text, statementStart, error.line, error.column) - statementStart)
-            .coerceIn(0, text.length)
+    private fun tokenRange(text: String, statementStart: Int, error: VerifyError): TextRange {
+        val within = (error.offset ?: 0).coerceIn(0, text.length)
         if (within >= text.length) {
-            val lastStart = (text.length - 1).coerceAtLeast(0)
+            val lastStart = if (text.isEmpty()) 0 else text.offsetByCodePoints(text.length, -1)
             return TextRange(statementStart + lastStart, statementStart + text.length)
+        }
+        error.endOffset?.takeIf { it > within && it <= text.length }?.let {
+            return TextRange(statementStart + within, statementStart + it)
         }
         var end = within
         while (end < text.length && text[end].isTokenChar()) end++
         return if (end > within) {
             TextRange(statementStart + within, statementStart + end)
         } else {
-            TextRange(statementStart + within, statementStart + within + 1)
+            TextRange(statementStart + within, statementStart + text.offsetByCodePoints(within, 1))
         }
     }
 

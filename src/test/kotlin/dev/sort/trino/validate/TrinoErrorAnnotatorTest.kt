@@ -107,9 +107,13 @@ class TrinoErrorAnnotatorTest : BasePlatformTestCase() {
     }
 
     fun testNativeCodePointColumnMapsToUtf16AfterSupplementaryCharacter() {
-        val (sql, errors) = annotate("SELECT '😀' AS emoji FROM t WHERE AND x")
-        assertEquals(1, errors.size)
-        assertEquals("AND", textOf(sql, errors.single().first))
+        for (sql in listOf("SELECT '😀' AS emoji FROM t WHERE AND x", "SELECT '😀' AS emoji\r\nFROM t\r\nWHERE AND x")) {
+            val info = TrinoErrorAnnotator.Info(listOf(TextRange(0, sql.length) to sql))
+            val errors = annotator.doAnnotate(info)!!.errors
+            assertEquals(1, errors.size)
+            assertEquals("AND", textOf(sql, errors.single().first))
+            assertEquals(sql.indexOf("AND"), errors.single().first.startOffset)
+        }
     }
 
     fun testValidTrinoStaysCleanThroughTheEditorPath() {
