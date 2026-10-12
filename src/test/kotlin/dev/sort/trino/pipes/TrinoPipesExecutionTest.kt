@@ -70,6 +70,7 @@ class TrinoPipesExecutionTest : BasePlatformTestCase() {
             assertEmpty(f.requests)
             assertEmpty(f.previous)
             assertFalse(f.notifications.isEmpty())
+            assertTrue(f.notifications.all { it.title == TrinoPipeDialect.label && it.content.isNotBlank() })
         }
     }
     fun testSubmissionFailureDoesNotRetryThroughPredecessor() {

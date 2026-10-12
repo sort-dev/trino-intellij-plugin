@@ -46,8 +46,25 @@ class TrinoPipesPlatformTest : BasePlatformTestCase() {
         assertEquals(2, statements.size)
         assertTrue(statements.first().text.endsWith("SELECT value"))
     }
-    fun testSettingKeepsPersistedEnabledOption() {
-        assertInstanceOf(project.service<TrinoPipesSettings>().state, ToggleSettings.Options::class.java)
+    fun testSettingKeepsPersistedEnabledOptionAndAppliesCheckbox() {
+        val settings = project.service<TrinoPipesSettings>()
+        assertInstanceOf(settings.state, ToggleSettings.Options::class.java)
+        val configurable = TrinoPipesConfigurable(project)
+        try {
+            val checkbox = configurable.createComponent().components.filterIsInstance<javax.swing.JCheckBox>().single()
+            assertEquals("Trino PIPE support", checkbox.text)
+            assertFalse(checkbox.isSelected)
+            assertFalse(configurable.isModified())
+            checkbox.isSelected = true
+            assertTrue(configurable.isModified())
+            configurable.apply()
+            assertTrue(settings.state.enabled)
+            assertFalse(configurable.isModified())
+            settings.enabled = false
+            configurable.reset()
+            assertFalse(checkbox.isSelected)
+            assertFalse(configurable.isModified())
+        } finally { configurable.disposeUIResources() }
     }
     fun testPipeDiagnosticsUseSharedRangesAlongsideNativeErrors() {
         val sql = "FROM t |> BOGUS 2; SELECT FROM WHERE;"

@@ -15,7 +15,8 @@ import dev.sort.trino.sql.TrinoSqlDialect
 class TrinoPipesSettings(project: Project) : ToggleSettings(project, TrinoSqlDialect)
 
 class TrinoPipesConfigurable(private val project: Project) : ToggleConfigurable(
-    "dev.sort.trino.pipes", TrinoPipeDialect.label, "Enable PIPE queries in this project", vetoProperty = TrinoPipeDialect.vetoProperty,
+    "dev.sort.trino.pipes", TrinoPipeDialect.label, "Trino PIPE support",
+    help = "Enable queries supported by Trino PIPE syntax in this project.", vetoProperty = TrinoPipeDialect.vetoProperty,
 ) {
     override val settings get() = project.service<TrinoPipesSettings>()
 }
