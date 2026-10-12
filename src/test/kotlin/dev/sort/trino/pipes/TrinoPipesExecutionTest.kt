@@ -12,6 +12,11 @@ import com.intellij.openapi.actionSystem.impl.SimpleDataContext
 import com.intellij.openapi.components.service
 import com.intellij.psi.PsiManager
 import com.intellij.testFramework.PlatformTestUtil
+import com.intellij.ui.UiInterceptors
+import com.intellij.openapi.ui.DialogWrapper
+import com.intellij.database.model.ObjectKind
+import com.intellij.database.util.ObjectPath
+import com.intellij.database.util.SearchPath
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.brikk.house.sql.intellij.*
 import dev.brikk.house.sql.intellij.pipe.PipeExecuteInterceptor
@@ -71,6 +76,30 @@ class TrinoPipesExecutionTest : BasePlatformTestCase() {
             assertEmpty(f.previous)
             assertFalse(f.notifications.isEmpty())
             assertTrue(f.notifications.all { it.title == TrinoPipeDialect.label && it.content.isNotBlank() })
+        }
+    }
+    fun testCatalogAndSchemaSwitchDuringPromptingRefusesWithoutSubmitting() {
+        fun namespace(catalog: String, schema: String) = SearchPath.of(ObjectPath.create(catalog, ObjectKind.DATABASE).append(schema, ObjectKind.SCHEMA))
+        for (destination in listOf(namespace("lake", "other"), namespace("other", "web"))) for (variant in 1..4) {
+            Fixture("FROM offline_rows |> WHERE id = :id |> SELECT id").use { f ->
+                f.console.setSearchPath(namespace("lake", "web"))
+                f.editor.selectionModel.setSelection(0, f.editor.document.textLength)
+                var prompted = false
+                UiInterceptors.register(object : UiInterceptors.UiInterceptor<DialogWrapper>(DialogWrapper::class.java) {
+                    override fun doIntercept(component: DialogWrapper) {
+                        prompted = true
+                        ShowSqlParametersPanelAction.getStorage(f.console).putValue("id", "17")
+                        f.console.setSearchPath(destination)
+                        component.close(DialogWrapper.OK_EXIT_CODE)
+                    }
+                })
+                try { f.execute(variant) } finally { if (!prompted) UiInterceptors.clear() }
+                assertTrue("Parameter dialog was not reached for variant $variant", prompted)
+                assertEquals(destination.current, f.console.currentNamespace)
+                assertEmpty(f.requests)
+                assertEmpty(f.previous)
+                assertTrue(f.notifications.map { it.content }.toString(), f.notifications.any { it.type == NotificationType.ERROR && it.title == TrinoPipeDialect.label })
+            }
         }
     }
     fun testSubmissionFailureDoesNotRetryThroughPredecessor() {

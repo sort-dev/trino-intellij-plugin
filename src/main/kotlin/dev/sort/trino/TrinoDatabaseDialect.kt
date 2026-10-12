@@ -5,15 +5,19 @@ import com.intellij.database.dataSource.DatabaseConnectionCore
 import com.intellij.database.dialects.base.TypeHelper
 import com.intellij.database.dialects.postgres.PgDialect
 import com.intellij.database.dialects.postgresbase.PgDialectBase
-import com.intellij.database.model.ObjectKind
 import com.intellij.database.model.DasObject
-import com.intellij.database.util.DbImplUtilCore
 import com.intellij.database.util.DdlBuilder
-import com.intellij.database.util.ObjectPath
 import com.intellij.database.util.SearchPath
+import dev.brikk.house.sql.intellij.catalog.CatalogSchemaSearchPath
+import dev.brikk.house.sql.intellij.catalog.NamespaceProbe
 
 class TrinoDatabaseDialect : PgDialectBase(TypeHelper.PgTypeHelper()) {
     private val postgres = PgDialect(TrinoDbms.TRINO_BRIKK)
+    private val namespace = CatalogSchemaSearchPath(
+        quote = '"', useSchema = "USE {catalog}.{schema}",
+        catalogProbes = listOf(NamespaceProbe.Column(READ_BACK, "catalog")),
+        schemaProbes = listOf(NamespaceProbe.Column(READ_BACK, "schema")), schemaRequired = true,
+    )
 
     override fun getDbms(): Dbms = TrinoDbms.TRINO_BRIKK
 
@@ -26,22 +30,15 @@ class TrinoDatabaseDialect : PgDialectBase(TypeHelper.PgTypeHelper()) {
         qualifier: DasObject,
     ): DdlBuilder = postgres.qualifiedIdentifier(builder, identifier, definition, qualifier)
 
-    override fun sqlSetSearchPath(path: SearchPath): String? {
-        val schema = path.current
-        if (schema.kind != ObjectKind.SCHEMA) return null
-        val catalog: ObjectPath = schema.findParent(ObjectKind.DATABASE, true) ?: return null
-        return DdlBuilder().plain("USE ").quoteIdentifiers(true)
-            .identifier(catalog.name).symbol(".").identifier(schema.name).statement
-    }
+    override fun sqlSetSearchPath(path: SearchPath): String? = namespace.switchSql(path)
 
     override fun sqlResetSearchPath(): String? = null
 
-    override fun getSearchPathQuery(): String = "SELECT current_catalog AS catalog, current_schema AS schema"
+    override fun getSearchPathQuery(): String = READ_BACK
 
-    override fun tryToLoadSearchPath(connection: DatabaseConnectionCore): SearchPath? {
-        val row = DbImplUtilCore.resultRowAsMap(connection, searchPathQuery)
-        val catalog = row["catalog"] as? String ?: return null
-        val schema = row["schema"] as? String ?: return null
-        return SearchPath.of(ObjectPath.create(catalog, ObjectKind.DATABASE).append(schema, ObjectKind.SCHEMA))
+    override fun tryToLoadSearchPath(connection: DatabaseConnectionCore): SearchPath? = namespace.readBack(connection)
+
+    private companion object {
+        const val READ_BACK = "SELECT current_catalog AS catalog, current_schema AS schema"
     }
 }
