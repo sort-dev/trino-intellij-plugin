@@ -21,12 +21,20 @@ class TrinoPipesIsolationTest : BasePlatformTestCase() {
             "dev.brikk.house.sql.intellij.pipe.PipeStatementGate", "dev.brikk.house.sql.intellij.editor.MaskedSpanRecolorAnnotator",
             "dev.brikk.house.sql.intellij.editor.SubstrateErrorFilter", "dev.brikk.house.sql.intellij.editor.SqlDialectQuoteHandler",
             "dev.brikk.house.sql.intellij.editor.KeywordOverlayHighlighterFactory", "dev.brikk.house.sql.intellij.dialect.PgFamilyDialect",
-            "dev.brikk.house.sql.intellij.dialect.SqlDialectRegistry"))
+            "dev.brikk.house.sql.intellij.dialect.SqlDialectRegistry",
+            "dev.brikk.house.sql.intellij.catalog.PgFamilyModelFacade",
+            "dev.brikk.house.sql.intellij.catalog.GenericJdbcIntrospectorGate",
+            "dev.brikk.house.sql.intellij.catalog.DialectDataSourceResolver",
+            "dev.brikk.house.sql.intellij.catalog.DataSourceResolution"))
             assertSame(name, loader, loader.loadClass(name).classLoader)
         assertEquals("dev.brikk.house.sql.intellij.lexer.MaskingSqlLexer",
             loader.loadClass("dev.sort.trino.sql.TrinoLexer").superclass.name)
         assertEquals("dev.brikk.house.sql.intellij.dialect.PgFamilyDialect",
             loader.loadClass("dev.sort.trino.sql.TrinoSqlDialect").superclass.name)
+        assertEquals("dev.brikk.house.sql.intellij.catalog.PgFamilyModelFacade",
+            loader.loadClass("dev.sort.trino.TrinoModelFacade").superclass.name)
+        assertEquals("dev.brikk.house.sql.intellij.catalog.GenericJdbcIntrospectorGate",
+            loader.loadClass("dev.sort.trino.TrinoIntrospectorGate").superclass.name)
         val registry = loader.loadClass("dev.brikk.house.sql.intellij.dialect.SqlDialectRegistry")
         val registryInstance = registry.getField("INSTANCE").get(null)
         val entry = registry.getMethod("forLanguageId", String::class.java).invoke(registryInstance, "TrinoSQL")!!
@@ -56,7 +64,8 @@ class TrinoPipesIsolationTest : BasePlatformTestCase() {
                 val completion = "dev.brikk.house.sql.intellij.completion.SqlCompletionContributor"
                 assertNotSame(loader.loadClass(completion), peer.pluginClassLoader!!.loadClass(completion))
                 for (shared in listOf("lexer.MaskingSqlLexer", "pipe.PipeStatementGate", "editor.MaskedSpanRecolorAnnotator",
-                    "dialect.PgFamilyDialect", "dialect.SqlDialectRegistry")) {
+                    "dialect.PgFamilyDialect", "dialect.SqlDialectRegistry", "catalog.PgFamilyModelFacade",
+                    "catalog.GenericJdbcIntrospectorGate", "catalog.DialectDataSourceResolver", "catalog.DataSourceResolution")) {
                     val type = "dev.brikk.house.sql.intellij.$shared"
                     val peerType = peer.pluginClassLoader!!.loadClass(type)
                     assertSame(peer.pluginClassLoader, peerType.classLoader)
