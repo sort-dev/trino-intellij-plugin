@@ -1,7 +1,6 @@
 package dev.sort.trino.sql
 
 import dev.brikk.house.sql.intellij.completion.KeywordScope
-import dev.brikk.house.sql.intellij.completion.LookupCase
 import dev.brikk.house.sql.intellij.completion.SqlCompletionContributor
 import dev.brikk.house.sql.intellij.completion.SqlCompletionProfile
 import dev.brikk.house.sql.intellij.completion.SqlLookupKind
@@ -21,13 +20,12 @@ object TrinoCompletionProfile : SqlCompletionProfile {
                 SqlLookupKind.WINDOW to "window",
                 SqlLookupKind.TABLE_FUNCTION to "table",
             ).map { (kind, label) ->
-                kind to defaults[kind].copy(
-                    icon = if (kind == SqlLookupKind.WINDOW) DatabaseIcons.Function else defaults[kind].icon,
-                    typeText = label, case = LookupCase.AS_GIVEN,
+                kind to defaults[kind].copy(typeText = label,
                     showsSignature = false, showsReturnType = true)
             }.toTypedArray(),
-            SqlLookupKind.KEYWORD to defaults[SqlLookupKind.KEYWORD].copy(case = LookupCase.AS_GIVEN),
         )
+    }.let { styles ->
+        styles.with(SqlLookupKind.WINDOW to styles[SqlLookupKind.WINDOW].copy(icon = DatabaseIcons.Function))
     }
 }
 
