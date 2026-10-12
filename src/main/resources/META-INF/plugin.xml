@@ -132,12 +132,12 @@
              the truth — Trino's own grammar, version-exact, on any mapped file (no engine, no data
              source needed: the authority is on the classpath, unlike duckdb's driver-jar path). -->
         <externalAnnotator language="TrinoSQL" implementationClass="dev.sort.trino.validate.TrinoErrorAnnotator"/>
-        <completion.contributor language="TrinoSQL"
-                                 implementationClass="dev.sort.trino.sql.TrinoCompletionContributor"/>
+        <completion.contributor language="TrinoSQL" order="first"
+                                 implementationClass="dev.sort.trino.catalog.TrinoQualifiedPathIntrospectContributor"/>
         <!-- Banner while a lazy introspection kicked by completion is in flight: the async model
              refresh lands after the current completion pass, so this tells the user to invoke
              completion again once the namespace finishes loading. -->
-        <editorNotificationProvider implementation="dev.sort.trino.catalog.TrinoIntrospectNotifier"/>
+        <editorNotificationProvider implementation="dev.sort.trino.catalog.TrinoIntrospectBannerProvider"/>
     </extensions>
 
     <extensions defaultExtensionNs="com.intellij.database">

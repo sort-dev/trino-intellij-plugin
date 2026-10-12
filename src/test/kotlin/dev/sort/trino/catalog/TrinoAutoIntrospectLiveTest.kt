@@ -14,6 +14,10 @@ import com.intellij.openapi.application.ReadAction
 import com.intellij.util.ui.classpath.SimpleClasspathElementFactory
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.intellij.testFramework.RunAll
+import com.intellij.testFramework.registerOrReplaceServiceInstance
+import dev.brikk.house.sql.intellij.catalog.NamespaceTarget
+import dev.brikk.house.sql.intellij.testing.BackgroundErrors
 import java.io.File
 
 /**
@@ -24,7 +28,7 @@ import java.io.File
  *  1. **Connect-time:** a fresh data source, introspected within its DEFAULT scope, enumerates the
  *     catalogs (connectors) — or does not (recorded, to decide whether the connect interceptor is
  *     needed).
- *  2. **Catalog deepening:** [TrinoAutoIntrospect.request] on `tpch` (CATALOG) loads tpch's schemas
+ *  2. **Catalog deepening:** [TrinoAutoIntrospectService.request] on `tpch` (CATALOG) loads tpch's schemas
  *     and NOTHING deeper (tpch.tiny stays table-less — the one-level discipline).
  *  3. **Schema deepening:** the same on `tpch.tiny` (SCHEMA) loads tiny's tables (orders, customer…).
  *
@@ -45,23 +49,26 @@ class TrinoAutoIntrospectLiveTest : BasePlatformTestCase() {
     private var dataSource: LocalDataSource? = null
     private var driver: DatabaseDriver? = null
     private var savedClasspath: List<com.intellij.util.ui.classpath.SimpleClasspathElement>? = null
+    private lateinit var errors: BackgroundErrors
+    private lateinit var requests: TrinoAutoIntrospectService
 
     override fun setUp() {
         super.setUp()
-        TrinoAutoIntrospect.resetForTest()
+        errors = BackgroundErrors(testRootDisposable)
+        requests = TrinoAutoIntrospectService(project, errors.newScope(testRootDisposable))
+        project.registerOrReplaceServiceInstance(TrinoAutoIntrospectService::class.java, requests, testRootDisposable)
+        myFixture.configureByText("live-introspection.sql", "SELECT 1")
     }
 
     override fun tearDown() {
-        try {
-            dataSource?.let { ds ->
-                runCatching { DataSourceSyncManager.getInstance().stopSynchronization(ds) }
-                runCatching { LocalDataSourceManager.getInstance(project).removeDataSource(ds) }
-            }
-            driver?.let { d -> savedClasspath?.let { runCatching { d.additionalClasspathElements = it } } }
-            TrinoAutoIntrospect.resetForTest()
-        } finally {
-            super.tearDown()
-        }
+        RunAll(
+            { dataSource?.let { DataSourceSyncManager.getInstance().stopSynchronization(it) } },
+            { errors.awaitScopes() },
+            { errors.assertNone() },
+            { dataSource?.let { LocalDataSourceManager.getInstance(project).removeDataSource(it) } },
+            { driver?.let { d -> savedClasspath?.let { d.additionalClasspathElements = it } } },
+            { super.tearDown() },
+        ).run()
     }
 
     /** Add the on-disk trino-jdbc jar to the driver's classpath so the remote JDBC host can load it. */
@@ -172,7 +179,7 @@ class TrinoAutoIntrospectLiveTest : BasePlatformTestCase() {
 
         // STAGE 2 — CATALOG deepen tpch -> schemas load; tpch.tiny must stay table-less (one level).
         assertTrue("catalog deepen must kick a NEW introspection",
-            TrinoAutoIntrospect.request(project, ds, TrinoNamespacePath.Level.CATALOG, "tpch", null, tpch))
+            requests.request(myFixture.file, ds, NamespaceTarget(listOf("tpch"), tpch)))
         pollUntil("tpch schemas after catalog deepen", 45) {
             childrenOf(tpch).any { nameOf(it).equals("tiny", true) }
         }
@@ -184,11 +191,11 @@ class TrinoAutoIntrospectLiveTest : BasePlatformTestCase() {
             childrenOf(tiny).isEmpty(),
         )
         assertFalse("second catalog deepen must be de-duped",
-            TrinoAutoIntrospect.request(project, ds, TrinoNamespacePath.Level.CATALOG, "tpch", null, tpch))
+            requests.request(myFixture.file, ds, NamespaceTarget(listOf("tpch"), tpch)))
 
         // STAGE 3 — SCHEMA deepen tpch.tiny -> tables load.
         assertTrue("schema deepen must kick a NEW introspection",
-            TrinoAutoIntrospect.request(project, ds, TrinoNamespacePath.Level.SCHEMA, "tpch", "tiny", tiny))
+            requests.request(myFixture.file, ds, NamespaceTarget(listOf("tpch", "tiny"), tiny)))
         pollUntil("tpch.tiny tables after schema deepen", 45) {
             childrenOf(tiny).any { nameOf(it).equals("orders", true) }
         }
@@ -199,6 +206,6 @@ class TrinoAutoIntrospectLiveTest : BasePlatformTestCase() {
             listOf("orders", "customer", "lineitem").all { t -> tables.any { it.equals(t, true) } },
         )
         assertFalse("second schema deepen must be de-duped",
-            TrinoAutoIntrospect.request(project, ds, TrinoNamespacePath.Level.SCHEMA, "tpch", "tiny", tiny))
+            requests.request(myFixture.file, ds, NamespaceTarget(listOf("tpch", "tiny"), tiny)))
     }
 }
