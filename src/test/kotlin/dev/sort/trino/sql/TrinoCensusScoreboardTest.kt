@@ -4,6 +4,7 @@ import com.intellij.psi.PsiErrorElement
 import com.intellij.psi.util.PsiTreeUtil
 import dev.sort.trino.setSqlDialectMapping
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import dev.brikk.house.sql.intellij.testing.assertRestartsMatchFullLex
 import java.io.File
 
 /**
@@ -74,6 +75,7 @@ class TrinoCensusScoreboardTest : BasePlatformTestCase() {
             val family = f.nameWithoutExtension
             var familyGreen = true
             for ((origin, sql) in statementsOf(f)) {
+                assertRestartsMatchFullLex(::TrinoLexer, sql)
                 val v = verdict(sql)
                 if (v.errors > 0) {
                     familyGreen = false
@@ -82,6 +84,7 @@ class TrinoCensusScoreboardTest : BasePlatformTestCase() {
             }
             // cross-statement leakage: the family file as ONE multi-statement document
             if (familyGreen) {
+                assertRestartsMatchFullLex(::TrinoLexer, f.readText())
                 val v = verdict(f.readText())
                 if (v.errors > 0) {
                     familyGreen = false
