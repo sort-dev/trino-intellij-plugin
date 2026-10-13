@@ -105,8 +105,8 @@ class BrikkRelationCorpusTest : BasePlatformTestCase() {
     ).run()
 
     fun testCurrentRelationImplementationsAgainstAcceptanceCorpus() {
-        assertEquals("2.1", facts.string("version"))
-        assertEquals(156, cases.size)
+        assertEquals("2.2", facts.string("version"))
+        assertEquals(177, cases.size)
         assertEquals(cases.size, cases.map { it.string("id") }.toSet().size)
         val usedWitnesses = cases.flatMap { case ->
             assertTrue(case.string("id"), case.string("catalogKnowledge") in setOf("CLOSED", "UNKNOWN"))
@@ -264,7 +264,7 @@ class BrikkRelationCorpusTest : BasePlatformTestCase() {
         val output = Path.of("build", "relation-corpus", "trino-${ApplicationInfo.getInstance().build.baselineVersion}.json")
         Files.createDirectories(output.parent)
         Files.writeString(output, Json { prettyPrint = true }.encodeToString(JsonElement.serializer(), report))
-        println("Trino relation corpus v2.1: ${cases.size} cases, ${applicable.size} applicable, ${differences.size} disagreements in ${differences.map { it.string("id") }.toSet().size} cases, ${resolved.size} resolved; $output")
+        println("Trino relation corpus v2.2: ${cases.size} cases, ${applicable.size} applicable, ${differences.size} disagreements in ${differences.map { it.string("id") }.toSet().size} cases, ${resolved.size} resolved; $output")
         assertTrue("Unlisted relation disagreements: ${unexpected.joinToString()}; see $output", unexpected.isEmpty())
     }
 
