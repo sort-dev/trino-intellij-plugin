@@ -9,6 +9,7 @@ import dev.brikk.house.sql.intellij.pipe.PipeDialect
 import dev.brikk.house.sql.intellij.pipe.ValidationTiming
 import dev.sort.trino.TrinoDbms
 import dev.sort.trino.brikk.BrikkTrinoProfile
+import dev.sort.trino.brikk.TrinoHostSql
 import dev.sort.trino.sql.TrinoSqlDialect
 import dev.sort.trino.validate.TrinoNativeValidation
 import dev.sort.trino.validate.toNativeVerdict
@@ -19,9 +20,9 @@ object TrinoPipeDialect : PipeDialect {
     override val vetoProperty = "trino.pipes"
     override val language get() = TrinoSqlDialect
     override fun isProjectEnabled(project: Project) = project.service<TrinoPipesSettings>().enabled
-    override fun enablesEditing(file: PsiFile) = BrikkTrinoProfile.forFile(file) != null
-    override fun isInspectionHost(file: PsiFile) = enablesEditing(file)
-    override fun enablesPreview(file: PsiFile) = !isInspectionHost(file)
+    override val hostSql get() = TrinoHostSql
+    // The injection marker is attached after its initial PSI parse; copied host facts are already available.
+    override fun enablesEditing(file: PsiFile) = hostSql.marker(file) != null || BrikkTrinoProfile.forFile(file) != null
     override fun ownsSession(session: DatabaseSession) = session.connectionPoint.dbms === TrinoDbms.TRINO_BRIKK
     override val validator = object : NativeSqlValidator {
         override val timing = ValidationTiming.Lowering

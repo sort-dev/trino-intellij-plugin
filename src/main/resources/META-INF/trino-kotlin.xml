@@ -1,11 +1,14 @@
 <idea-plugin>
     <extensions defaultExtensionNs="dev.sort.trino-intellij-plugin">
         <relationFacts implementation="dev.sort.trino.brikk.kotlin.TrinoBrikkRelationFacts"/>
+        <inspectionHostGuard implementation="dev.sort.trino.brikk.kotlin.BrikkTrinoInspectionHostGuard"/>
     </extensions>
     <extensions defaultExtensionNs="com.intellij">
         <languageInjectionContributor language="kotlin" implementationClass="dev.sort.trino.brikk.kotlin.BrikkTrinoHostSqlInjector" order="first"/>
         <languageInjectionPerformer language="kotlin" implementationClass="dev.sort.trino.brikk.kotlin.BrikkTrinoHostSqlInjector" order="first"/>
         <annotator language="kotlin" implementationClass="dev.sort.trino.brikk.kotlin.BrikkTrinoHostAnnotator"/>
+        <codeInsight.lineMarkerProvider language="kotlin" implementationClass="dev.sort.trino.brikk.kotlin.BrikkTrinoLineMarkerProvider"/>
+        <editorNotificationProvider implementation="dev.sort.trino.brikk.kotlin.BrikkTrinoActionBanner"/>
         <externalAnnotator language="kotlin" implementationClass="dev.sort.trino.validate.TrinoErrorAnnotator"/>
     </extensions>
 </idea-plugin>

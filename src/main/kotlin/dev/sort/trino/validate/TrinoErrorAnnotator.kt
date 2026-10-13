@@ -18,6 +18,7 @@ import dev.brikk.house.sql.shape.ShapeError
 import dev.brikk.house.sql.shape.SqlFragment
 import dev.brikk.house.sql.verify.TrinoVerifier
 import dev.sort.trino.brikk.BrikkTrinoProfile
+import dev.sort.trino.brikk.TrinoHostSql
 import dev.sort.trino.pipes.TrinoPipeDialect
 import dev.sort.trino.pipes.TrinoPipesSettings
 import dev.sort.trino.sql.TrinoSqlDialect
@@ -30,6 +31,7 @@ object TrinoNativeErrorProfile : NativeErrorProfile {
     override val injectionHosts get() = setOfNotNull(Language.findLanguageByID("kotlin"))
     override val dialect = "trino"
     override val label = "Trino"
+    override val hostSql get() = TrinoHostSql
     override val sizeCap = 1_000_000
     override val budget = 2.seconds
     private val nativeValidator = NativeSqlValidator.of(TrinoVerifier())

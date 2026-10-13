@@ -5,7 +5,6 @@ import com.intellij.openapi.project.Project
 import dev.brikk.house.sql.intellij.catalog.TextExplainConfiguration
 import dev.brikk.house.sql.intellij.catalog.TextExplainProfile
 import dev.brikk.house.sql.intellij.catalog.TextExplainService
-import dev.brikk.house.sql.metadata.TRINO_FUNCTION_CATALOG
 import dev.sort.trino.TrinoDbms
 import dev.sort.trino.TRINO_SEARCH_PATH
 import dev.sort.trino.pipes.TrinoPipeDialect
@@ -15,7 +14,6 @@ object TrinoTextExplainProfile : TextExplainProfile {
     override val dbms = TrinoDbms.TRINO_BRIKK
     override val productLabel = "Trino"
     override val dialect = "trino"
-    override val builtinFunctions = TRINO_FUNCTION_CATALOG
     override val enabled = true
     override val searchPath = TRINO_SEARCH_PATH
     override val dataSources = trinoDataSourceResolver

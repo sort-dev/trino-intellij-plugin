@@ -7,8 +7,13 @@ import dev.brikk.house.intellij.*
 import dev.brikk.house.sql.intellij.host.*
 import dev.sort.trino.brikk.BrikkTrinoProfile
 import dev.sort.trino.brikk.TrinoHostSql
+import dev.sort.trino.brikk.TrinoInspectionHostGuard
 import dev.sort.trino.sql.TrinoSqlDialect
 import org.jetbrains.kotlin.psi.KtStringTemplateExpression
+
+class BrikkTrinoInspectionHostGuard : TrinoInspectionHostGuard {
+    override fun isInspectionOnly(host: PsiLanguageInjectionHost) = BrikkInspectionView.isInspectionOnly(host)
+}
 
 class BrikkTrinoHostSqlInjector : HostSqlInjector(TrinoHostSql, TrinoSqlDialect) {
     override val prefix = "-- dialect: trino\n"
@@ -34,7 +39,8 @@ class BrikkTrinoHostSqlInjector : HostSqlInjector(TrinoHostSql, TrinoSqlDialect)
                 else -> error("Unsupported helper trim: ${it.function}")
             }
         })
-        return HostSqlClaim.Injected(TrinoSqlDialect, entries, pending = pending, data = profile)
+        return HostSqlClaim.Injected(TrinoSqlDialect, entries, pending = pending,
+            data = BrikkTrinoClaimData(profile, (state as? BrikkHostState.Pending)?.cause))
     }
 }
 

@@ -31,7 +31,7 @@ class TrinoDefinitionsAndExplainTest : BasePlatformTestCase() {
         }
     }
 
-    fun testExplainUsesHelperNamespaceThenBuiltinPathAndNeverTheConsoleSession() {
+    fun testExplainUsesHelperNamespaceAndNeverTheConsoleSession() {
         val file = myFixture.configureByText("explain.sql", "SELECT abs(-1) FROM t")
         val errors = BackgroundErrors(testRootDisposable)
         RecordingConsole(project, file.virtualFile, "trino-brikk").use { recording ->
@@ -39,7 +39,7 @@ class TrinoDefinitionsAndExplainTest : BasePlatformTestCase() {
             val explain = service(errors)
             assertTrue(explain.owns(recording.console))
             assertEquals(ExplainOutcome.Plan("plan row 1\nplan row 2"), runBlocking { explain.explain(recording.console, file.text) })
-            assertEquals(listOf("USE \"a\"\"b\".\"c.d\"", "SET PATH system.builtin", "EXPLAIN SELECT abs(-1) FROM t"), submitted.toList())
+            assertEquals(listOf("USE \"a\"\"b\".\"c.d\"", "EXPLAIN SELECT abs(-1) FROM t"), submitted.toList())
             assertEquals(1, opened)
             assertEmpty(recording.requests)
             assertFalse(recording.console.session.isConnected)
@@ -54,13 +54,28 @@ class TrinoDefinitionsAndExplainTest : BasePlatformTestCase() {
         RecordingConsole(project, file.virtualFile, "trino-brikk").use { recording ->
             val explain = service(errors)
             for (sql in listOf("INSERT INTO t VALUES (1)", "CREATE TABLE t AS SELECT 1", "EXPLAIN ANALYZE SELECT 1",
-                "SELECT custom_function(1)", "SELECT hive.web.abs(1)", "SELECT :id", "SELECT 1; SELECT 2")) {
+                "SELECT :id", "SELECT 1; SELECT 2")) {
                 assertInstanceOf(runBlocking { explain.explain(recording.console, sql) }, ExplainOutcome.Refused::class.java)
             }
             recording.console.setSearchPath(SearchPath.of(ObjectPath.create("lake", ObjectKind.DATABASE)))
             assertInstanceOf(runBlocking { explain.explain(recording.console, "SELECT 1") }, ExplainOutcome.Refused::class.java)
             assertEquals(0, opened)
             assertEmpty(submitted)
+            assertEmpty(recording.requests)
+        }
+        errors.awaitScopes()
+        errors.assertNone()
+    }
+
+    fun testExplainLeavesFunctionResolutionToTrino() {
+        val file = myFixture.configureByText("functions-explain.sql", "SELECT custom_function(1)")
+        val errors = BackgroundErrors(testRootDisposable)
+        RecordingConsole(project, file.virtualFile, "trino-brikk").use { recording ->
+            val explain = service(errors)
+            for (sql in listOf(file.text, "SELECT hive.web.abs(1)")) {
+                assertInstanceOf(runBlocking { explain.explain(recording.console, sql) }, ExplainOutcome.Plan::class.java)
+            }
+            assertEquals(listOf("EXPLAIN SELECT custom_function(1)", "EXPLAIN SELECT hive.web.abs(1)"), submitted.toList())
             assertEmpty(recording.requests)
         }
         errors.awaitScopes()

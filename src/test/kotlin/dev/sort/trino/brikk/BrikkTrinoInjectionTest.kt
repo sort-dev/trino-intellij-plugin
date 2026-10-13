@@ -271,11 +271,11 @@ open class BrikkTrinoInjectionTest : BasePlatformTestCase() {
             if (old == null) System.clearProperty("trino.pipes") else System.setProperty("trino.pipes", old)
         }
     }
-    fun testPipesVetoDisablesBrikkEditingWithoutEnablingPreview() {
+    fun testPipesVetoDisablesBrikkEditingWithoutEnablingExecution() {
         val file = injected(configure("@BrikkSql fun query() = Sql.trino(\"FROM t |> SELECT id\")"))
         assertTrue(TrinoPipeDialect.isEditingEnabled(file))
         assertTrue(TrinoPipeDialect.isInspectionHost(file))
-        assertFalse(TrinoPipeDialect.enablesPreview(file))
+        assertTrue(TrinoPipeDialect.enablesPreview(file))
         val previous = System.getProperty(TrinoPipeDialect.vetoProperty)
         try {
             System.setProperty(TrinoPipeDialect.vetoProperty, "false")
@@ -319,7 +319,37 @@ open class BrikkTrinoInjectionTest : BasePlatformTestCase() {
         assertEquals(dev.brikk.house.sql.intellij.ExecutionClaim.HANDLED,
             PipeExecuteInterceptor(TrinoPipeDialect).execute(event, com.intellij.database.settings.DatabaseSettings.ExecOption()))
         assertFalse(RunPipesToStageIntention().isAvailable(project, myFixture.editor, file))
-        assertFalse(PreviewPipeSqlIntention().isAvailable(project, myFixture.editor, file))
+        assertTrue(PreviewPipeSqlIntention().isAvailable(project, myFixture.editor, file))
+    }
+    fun testExecuteFromRealKotlinHostEditorIsRefused() {
+        dev.brikk.house.sql.intellij.testing.HostSqlExecutionContract(TrinoPipeDialect) {
+            configure("@BrikkSql fun query() = Sql.trino(\"FROM t |> SELECT i<caret>d\")")
+            val top = InjectedLanguageManager.getInstance(project).getTopLevelFile(myFixture.file)
+            assertEquals("kotlin", top.language.id)
+            val editor = (myFixture.editor as? com.intellij.injected.editor.EditorWindow)?.delegate ?: myFixture.editor
+            assertEquals(top, PsiDocumentManager.getInstance(project).getPsiFile(editor.document))
+            editor
+        }.refusesInspectionOnlySqlFromTheHostEditor()
+    }
+    fun testForeignDialectBrikkInjectionIsInspectionOnly() {
+        myFixture.configureByText("Foreign.kt", """
+            import dev.brikk.house.sql.runtime.*
+            @BrikkSql fun query() = Sql.duckdb("FROM t |> SELECT id")
+        """.trimIndent())
+        val host = PsiTreeUtil.findChildrenOfType(myFixture.file, KtStringTemplateExpression::class.java).single()
+        assertTrue(dev.sort.trino.brikk.kotlin.BrikkTrinoInspectionHostGuard().isInspectionOnly(host))
+        assertEquals(dev.brikk.house.sql.intellij.host.HostSqlClaim.NotClaimed,
+            dev.sort.trino.brikk.kotlin.BrikkTrinoHostSqlInjector().claim(host))
+    }
+    fun testRunInConsoleIsUnavailableForBrikkButAvailableForPlainSql() {
+        val veto = TrinoHostRunConsoleVeto()
+        val host = configure("@BrikkSql fun query() = Sql.trino(\"SELECT <caret>1\")")
+        val file = injected(host)
+        assertFalse(veto.isAvailable(myFixture.editor, file))
+        val plain = myFixture.configureByText("plain-run.sql", "SELECT <caret>1")
+        dev.brikk.house.sql.intellij.testing.setSqlDialectMapping(project, plain.virtualFile,
+            dev.sort.trino.sql.TrinoSqlDialect, testRootDisposable)
+        assertTrue(veto.isAvailable(myFixture.editor, plain))
     }
     fun testAnnotationRemovalWithdrawsBrikkProfile() {
         var host = configure("@BrikkSql fun query(x: Int) = Sql.trino(\"SELECT \$x\")")

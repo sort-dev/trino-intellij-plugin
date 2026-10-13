@@ -106,10 +106,12 @@
 
     <extensionPoints>
         <extensionPoint name="relationFacts" interface="dev.brikk.house.sql.intellij.relation.ExternalRelationFacts" dynamic="true"/>
+        <extensionPoint name="inspectionHostGuard" interface="dev.sort.trino.brikk.TrinoInspectionHostGuard" dynamic="true"/>
     </extensionPoints>
 
     <extensions defaultExtensionNs="com.intellij">
         <postStartupActivity implementation="dev.sort.trino.catalog.TrinoExecutionObserverStartup"/>
+        <database.runConsoleAvailable implementation="dev.sort.trino.brikk.TrinoHostRunConsoleVeto"/>
         <sql.resolveExtension implementation="dev.sort.trino.brikk.TrinoRelationResolveExtension"/>
         <sql.inspectionSuppressorDelegate implementation="dev.sort.trino.brikk.TrinoRelationInspectionSuppressor"/>
         <completion.contributor language="TrinoSQL" implementationClass="dev.sort.trino.pipes.TrinoPipesCompletionContributor" order="first, before trino.metadata"/>
