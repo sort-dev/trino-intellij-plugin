@@ -130,7 +130,16 @@ class BrikkRelationCorpusTest : BasePlatformTestCase() {
         }.toSet()
         assertEquals("No orphan native witnesses", usedWitnesses, witnesses.keys)
         val baseline = Json.parseToJsonElement(resource("duckdb-disagreements.json")).jsonObject
-        val known = Json.parseToJsonElement(resource("trino-disagreements.json")).jsonObject
+        val ledger = Json.parseToJsonElement(Files.readString(Path.of(System.getProperty("corpus.dir"))
+            .resolveSibling("trino-relation-differences.json"))).jsonObject
+        assertEquals("2.2", ledger.string("corpusVersion"))
+        val reasons = ledger.getValue("reasons").jsonObject
+        val known = ledger.getValue("cases").jsonObject
+        known.values.forEach { entry -> entry.jsonObject.values.forEach { code ->
+            val reason = reasons.getValue(code.jsonPrimitive.content).jsonObject
+            assertTrue(reason.string("classification").isNotBlank())
+            assertTrue(reason.string("reason").isNotBlank())
+        } }
         assertTrue(known.keys.all { id -> cases.any { it.string("id") == id } })
         val differences = ArrayList<JsonObject>()
         val results = ArrayList<JsonObject>()
@@ -201,7 +210,7 @@ class BrikkRelationCorpusTest : BasePlatformTestCase() {
                 }
                 observed
             }
-            val allowed = known[id]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet().orEmpty()
+            val allowed = known[id]?.jsonObject?.keys.orEmpty()
             assertTrue(id, allowed.all { it in expected.keys })
             val axes = ArrayList<JsonObject>()
             for ((axis, wanted) in expected) {
@@ -214,6 +223,7 @@ class BrikkRelationCorpusTest : BasePlatformTestCase() {
                     differences += buildJsonObject {
                         put("id", id); put("category", case.string("category")); put("axis", axis); put("input", sql)
                         put("expected", wanted); put("actual", got); put("known", axis in allowed)
+                        known[id]?.jsonObject?.get(axis)?.jsonPrimitive?.content?.let { put("reason", reasons.getValue(it)) }
                         put("judgement", facts.getValue("evidence").jsonObject.getValue(case.string("category")))
                     }
                     if (axis !in allowed) unexpected += "$id/$axis"
@@ -236,6 +246,7 @@ class BrikkRelationCorpusTest : BasePlatformTestCase() {
         }
         val report = buildJsonObject {
             put("corpusVersion", facts.getValue("version")); put("dialect", "trino")
+            put("knownDifferenceLedger", ledger)
             put("corpusSize", cases.size); put("disagreementCount", differences.size)
             put("applicableCases", applicable.size)
             put("notApplicable", strings((cases - applicable.toSet()).map { it.string("id") }))
@@ -268,6 +279,7 @@ class BrikkRelationCorpusTest : BasePlatformTestCase() {
         Files.writeString(output, Json { prettyPrint = true }.encodeToString(JsonElement.serializer(), report))
         println("Trino relation corpus v2.2: ${cases.size} cases, ${applicable.size} applicable, ${differences.size} disagreements in ${differences.map { it.string("id") }.toSet().size} cases, ${resolved.size} resolved; $output")
         assertTrue("Unlisted relation disagreements: ${unexpected.joinToString()}; see $output", unexpected.isEmpty())
+        assertTrue("Remove resolved ledger entries: ${resolved.joinToString()}", resolved.isEmpty())
     }
 
     private fun resource(name: String) = Files.readString(Path.of(System.getProperty("corpus.dir"))
@@ -494,7 +506,10 @@ class BrikkRelationCorpusTest : BasePlatformTestCase() {
         val reference = nativeReference(file, start) ?: return emptyList()
         val resolved = reference.reference.resolve() ?: return emptyList()
         val result = reference.resolveSingle() as? SqlResolveResult
-        val qualifier = reference.qualifierExpression?.text
+        val qualifier = reference.qualifierExpression?.text?.let {
+            if (it.startsWith('"') && it.endsWith('"') && "\".\"" !in it)
+                it.removeSurrounding("\"").replace("\"\"", "\"") else it
+        }
             ?: (result?.immediateQualifier as? SqlNameElement)?.name
             ?: (result?.qualifier as? SqlNameElement)?.name
         val symbol = resolved as? DasColumnSymbol ?: reference.resolveSymbol()
@@ -587,7 +602,11 @@ class BrikkRelationCorpusTest : BasePlatformTestCase() {
             if (origin == "PHYSICAL_TABLE") it.uppercase() else it
         }, when {
             contract != null -> contract.nullability.name
-            origin == "PHYSICAL_TABLE" -> if (physical?.isNotNull == true) "NON_NULL" else "NULLABLE"
+            origin == "PHYSICAL_TABLE" -> when {
+                physical != null -> if (physical.isNotNull) "NON_NULL" else "NULLABLE"
+                shown.typeText.orEmpty().endsWith('?') -> "NULLABLE"
+                else -> "NON_NULL"
+            }
             shown.typeText.orEmpty().contains("nullability unknown") || shown.typeText == "PIPE input column" -> "UNKNOWN"
             shown.typeText.orEmpty().endsWith('?') -> "NULLABLE"
             else -> "NON_NULL"
