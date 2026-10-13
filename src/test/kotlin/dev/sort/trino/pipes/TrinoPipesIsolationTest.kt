@@ -41,7 +41,10 @@ class TrinoPipesIsolationTest : BasePlatformTestCase() {
             "dev.brikk.house.sql.intellij.catalog.ExecutionObserver", "dev.brikk.house.sql.intellij.catalog.ExecutionObserverProfile",
             "dev.brikk.house.sql.intellij.catalog.ExecutionObserverStartup", "dev.brikk.house.sql.intellij.catalog.StatementHeadDetector",
             "dev.brikk.house.sql.intellij.diagnostics.NativeErrorAnnotator", "dev.brikk.house.sql.intellij.diagnostics.NativeErrorProfile",
-            "dev.brikk.house.sql.intellij.catalog.ShowCreateDefinitionProvider", "dev.brikk.house.sql.intellij.catalog.TextExplainService"))
+            "dev.brikk.house.sql.intellij.catalog.ShowCreateDefinitionProvider", "dev.brikk.house.sql.intellij.catalog.TextExplainService",
+            "dev.brikk.house.sql.intellij.host.HostSqlChannel", "dev.brikk.house.sql.intellij.host.HostSqlRunConsoleVeto",
+            "dev.brikk.house.sql.intellij.relation.ExternalRelationResolveExtension",
+            "dev.brikk.house.sql.intellij.relation.ExternalRelationCompletionContributor"))
             assertSame(name, loader, loader.loadClass(name).classLoader)
         assertEquals("dev.brikk.house.sql.intellij.lexer.MaskingSqlLexer",
             loader.loadClass("dev.sort.trino.sql.TrinoLexer").superclass.name)
