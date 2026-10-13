@@ -3,5 +3,6 @@
         <languageInjectionContributor language="kotlin" implementationClass="dev.sort.trino.brikk.kotlin.BrikkTrinoInjectionContributor" order="first"/>
         <languageInjectionPerformer language="kotlin" implementationClass="dev.sort.trino.brikk.kotlin.BrikkTrinoInjectionPerformer" order="first"/>
         <annotator language="kotlin" implementationClass="dev.sort.trino.brikk.kotlin.BrikkTrinoHostAnnotator"/>
+        <externalAnnotator language="kotlin" implementationClass="dev.sort.trino.validate.TrinoErrorAnnotator"/>
     </extensions>
 </idea-plugin>

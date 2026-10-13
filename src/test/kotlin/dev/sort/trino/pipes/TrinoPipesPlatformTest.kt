@@ -13,6 +13,7 @@ import dev.brikk.house.sql.intellij.*
 import dev.brikk.house.sql.intellij.pipe.isEnabled
 import dev.sort.trino.sql.TrinoSqlDialect
 import dev.sort.trino.validate.TrinoErrorAnnotator
+import dev.sort.trino.validate.annotations
 
 class TrinoPipesPlatformTest : BasePlatformTestCase() {
     override fun tearDown() {
@@ -28,9 +29,7 @@ class TrinoPipesPlatformTest : BasePlatformTestCase() {
         val statements = PsiTreeUtil.findChildrenOfType(psi, SqlStatement::class.java).filterNot { it.parent is SqlStatement }
         assertEquals(3, statements.size)
         val annotator = TrinoErrorAnnotator()
-        val result = annotator.doAnnotate(annotator.collectInformation(psi))!!
-        assertEmpty(result.errors)
-        assertEmpty(result.pipeErrors)
+        assertEmpty(annotator.annotations(psi))
         project.service<TrinoPipesSettings>().enabled = false
         PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
         assertFalse(TrinoPipeDialect.isEnabled(project))
@@ -76,12 +75,30 @@ class TrinoPipesPlatformTest : BasePlatformTestCase() {
         project.service<TrinoPipesSettings>().enabled = true
         PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
         val annotator = TrinoErrorAnnotator()
-        val result = annotator.doAnnotate(annotator.collectInformation(myFixture.file))!!
-        assertEquals(1, result.errors.size)
-        assertEquals(1, result.pipeErrors.size)
+        val errors = annotator.annotations(myFixture.file)
+        assertEquals(1, errors.count { it.second.startsWith("Trino:") })
+        assertEquals(1, errors.count { it.second.startsWith("Trino PIPE:") })
         val highlight = myFixture.doHighlighting().single { it.description?.startsWith("Trino PIPE:") == true }
         assertTrue(highlight.toString(), sql.indexOf("BOGUS") in highlight.startOffset until highlight.endOffset)
     }
+    fun testPipeSwitchInvalidatesOutcomesIncludingToggleBack() {
+        val file = myFixture.configureByText("pipe-toggle.sql", "FROM t |> BOGUS 2")
+        dev.brikk.house.sql.intellij.testing.setSqlDialectMapping(project, file.virtualFile, TrinoSqlDialect)
+        val settings = project.service<TrinoPipesSettings>()
+        val annotator = TrinoErrorAnnotator()
+        settings.enabled = true
+        PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
+        val psi = myFixture.file
+        val enabled = annotator.doAnnotate(annotator.collectInformation(psi))!!
+        assertTrue(annotator.annotations(psi, enabled).single().second.startsWith("Trino PIPE:"))
+        settings.enabled = false
+        assertEmpty(annotator.annotations(psi, enabled))
+        assertTrue(annotator.annotations(psi).single().second.startsWith("Trino:"))
+        settings.enabled = true
+        assertEmpty(annotator.annotations(psi, enabled))
+        assertTrue(annotator.annotations(psi).single().second.startsWith("Trino PIPE:"))
+    }
+
     fun testWholeStagePhrasesIncludingNestedPipelinesGetKeywordColoring() {
         val sql = "FROM (FROM t |> FULL OUTER JOIN u ON t.id = u.id) AS p |> ORDER BY id"
         val file = myFixture.configureByText("pipe-colors.sql", sql)

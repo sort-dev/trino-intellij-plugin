@@ -11,7 +11,11 @@ import dev.sort.trino.sql.TrinoSqlDialect
 
 @Service(Service.Level.PROJECT)
 @State(name = "TrinoPipesSettings", storages = [Storage(ToggleSettings.STORAGE)])
-class TrinoPipesSettings(project: Project) : ToggleSettings(project, TrinoSqlDialect)
+class TrinoPipesSettings(project: Project) : ToggleSettings(project, TrinoSqlDialect) {
+    private val revision = java.util.concurrent.atomic.AtomicLong()
+    val diagnosticRevision get() = revision.get()
+    override fun onChanged(enabled: Boolean) { revision.incrementAndGet() }
+}
 
 class TrinoPipesConfigurable(private val project: Project) : ToggleConfigurable(
     "dev.sort.trino.pipes", TrinoPipeDialect.label, "Trino PIPE support",

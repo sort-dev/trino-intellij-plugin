@@ -1,9 +1,5 @@
 package dev.sort.trino.brikk
 
-import com.intellij.codeInsight.daemon.impl.AnnotationHolderImpl
-import com.intellij.lang.annotation.AnnotationSession
-import com.intellij.lang.annotation.Annotator
-import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.lang.injection.InjectedLanguageManager
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.components.service
@@ -19,6 +15,7 @@ import dev.brikk.house.sql.intellij.pipe.PipeText
 import dev.brikk.house.sql.intellij.pipe.isEditingEnabled
 import dev.sort.trino.pipes.*
 import dev.sort.trino.validate.TrinoErrorAnnotator
+import dev.sort.trino.validate.annotations
 import org.jetbrains.kotlin.idea.references.mainReference
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtStringTemplateExpression
@@ -87,18 +84,13 @@ open class BrikkTrinoInjectionTest : BasePlatformTestCase() {
         for (sql in listOf("SELECT 1 FROM", "SELECT \\\"face\\\" FROM")) {
             val file = injected(configure("@BrikkSql fun query() = Sql.trino(\"$sql\")"))
             assertEmpty(BrikkTrinoProfile.forFile(file)!!.issues)
-            val source = PipeText.of(file)
             val annotator = TrinoErrorAnnotator()
-            val result = annotator.doAnnotate(annotator.collectInformation(file))!!
-            assertEquals(1, result.errors.size)
-            val range = result.errors.single().first
-            assertEquals("FROM", source.text.substring(range.startOffset, range.endOffset))
-            val annotations = AnnotationHolderImpl(AnnotationSession(file), false)
-            annotations.runAnnotatorWithContext(file, Annotator { _, holder -> annotator.apply(file, result, holder) })
-            annotations.assertAllAnnotationsCreated()
-            val error = annotations.single { it.severity == HighlightSeverity.ERROR }
-            assertEquals(file.text.indexOf("FROM"), error.startOffset)
-            assertEquals(file.text.indexOf("FROM") + 4, error.endOffset)
+            val top = InjectedLanguageManager.getInstance(project).getTopLevelFile(file)
+            val errors = annotator.annotations(top)
+            assertEquals(errors.toString(), 1, errors.size)
+            val (range, message) = errors.single()
+            assertTrue(message, message.startsWith("Trino Brikk:"))
+            assertEquals("FROM", top.text.substring(range.startOffset, range.endOffset))
         }
     }
     fun testNativeInjectedPipeDiagnosticsUseUnescapedCoordinates() {
@@ -115,24 +107,31 @@ open class BrikkTrinoInjectionTest : BasePlatformTestCase() {
                 val source = PipeText.of(file)
                 assertTrue("Expected an escaped injection: ${file.text}", file.text.length > source.text.length)
                 val annotator = TrinoErrorAnnotator()
-                val info = annotator.collectInformation(file)!!
-                assertEquals(source.text, info.source)
-                assertEquals(source.text.substringAfter(';').trim(), info.statements.last().second.trim())
-                val result = annotator.doAnnotate(info)!!
-                assertEmpty(result.errors)
-                assertEquals(1, result.pipeErrors.size)
-                val annotations = AnnotationHolderImpl(AnnotationSession(file), false)
-                annotations.runAnnotatorWithContext(file, Annotator { _, holder -> annotator.apply(file, result, holder) })
-                annotations.assertAllAnnotationsCreated()
-                val error = annotations.single { it.severity == HighlightSeverity.ERROR }
-                assertEquals(file.text.indexOf("BOGUS"), error.startOffset)
-                assertEquals(file.text.indexOf("BOGUS") + 5, error.endOffset)
+                val top = InjectedLanguageManager.getInstance(project).getTopLevelFile(file)
+                val errors = annotator.annotations(top)
+                assertEquals(errors.toString(), 1, errors.size)
+                val (range, message) = errors.single()
+                assertTrue(message, message.startsWith("Trino PIPE:"))
+                assertEquals("BOGUS", top.text.substring(range.startOffset, range.endOffset))
             }
         } finally {
             settings.enabled = previous
             PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
         }
     }
+    fun testHostChecksEveryFragmentWithItsOwnBrikkProfile() {
+        configure("""
+            @BrikkSql fun template(id: Int) = Sql.trino("SELECT ${'$'}id AS id")
+            fun native() = Sql.trino("SELECT FROM WHERE")
+        """.trimIndent())
+        val top = myFixture.file
+        val errors = TrinoErrorAnnotator().annotations(top)
+        assertEquals(errors.toString(), 1, errors.size)
+        val (range, message) = errors.single()
+        assertTrue(message, message.startsWith("Trino:"))
+        assertEquals("FROM", top.text.substring(range.startOffset, range.endOffset))
+    }
+
     fun testFromFirstInjectionPreservesLaterStatements() {
         for (first in listOf("FROM src()", "FROM src() |> SELECT id")) {
             val file = injected(configure("@BrikkSql fun query(src: Rel<Nothing>) = Sql.trino(\"$first; SELECT 42 AS later; SELECT 43 AS tail\")"))

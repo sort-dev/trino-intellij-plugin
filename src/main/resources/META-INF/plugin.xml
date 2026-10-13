@@ -132,6 +132,7 @@
              483). The highlightErrorFilter above suppresses the substrate's noisy red; THIS supplies
              the truth — Trino's own grammar, version-exact, on any mapped file (no engine, no data
              source needed: the authority is on the classpath, unlike duckdb's driver-jar path). -->
+        <!-- Shared core statement ranges and revision checks; PSI diagnostics remain off. -->
         <externalAnnotator language="TrinoSQL" implementationClass="dev.sort.trino.validate.TrinoErrorAnnotator"/>
         <completion.contributor language="TrinoSQL" order="first"
                                  implementationClass="dev.sort.trino.catalog.TrinoQualifiedPathIntrospectContributor"/>
