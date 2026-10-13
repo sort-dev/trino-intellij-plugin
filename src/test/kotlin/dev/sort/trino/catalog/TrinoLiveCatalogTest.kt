@@ -93,7 +93,8 @@ class TrinoLiveCatalogTest : BasePlatformTestCase() {
         assertEquals("decimal(38, 0)", offered("ab").single { it.name == "abs" }.returnType)
         assertTrue(offered("ca").any { it.name == "CAST" })
         assertTrue(offered("current_time").any { it.name == "CURRENT_TIMESTAMP" })
-        assertTrue(offered("json_").any { it.name == "JSON_TABLE" })
+        assertFalse(offered("json_").any { it.name == "JSON_TABLE" })
+        assertTrue(offered("json_", tablePosition = true).any { it.name == "JSON_TABLE" })
         assertEquals(catalog.completion(myFixture.file).serverOnlyFunctions, TrinoCompletionProfile.serverOnlyFunctions(myFixture.file))
         connect()
         assertEquals(listOf("SELECT version()", "SHOW FUNCTIONS"), queries.toList())
@@ -131,9 +132,9 @@ class TrinoLiveCatalogTest : BasePlatformTestCase() {
         assertTrue(TrinoCompletionProfile.serverOnlyFunctions(myFixture.file).isEmpty())
     }
 
-    private fun offered(prefix: String): List<FunctionPresentation> {
+    private fun offered(prefix: String, tablePosition: Boolean = false): List<FunctionPresentation> {
         LookupManager.getInstance(project).hideActiveLookup()
-        WriteCommandAction.runWriteCommandAction(project) { myFixture.editor.document.setText("SELECT $prefix") }
+        WriteCommandAction.runWriteCommandAction(project) { myFixture.editor.document.setText(if (tablePosition) "SELECT * FROM $prefix" else "SELECT $prefix") }
         myFixture.editor.caretModel.moveToOffset(myFixture.editor.document.textLength)
         val functions = myFixture.completeBasic().orEmpty().mapNotNull { it.`object` as? FunctionPresentation }
         LookupManager.getInstance(project).hideActiveLookup()

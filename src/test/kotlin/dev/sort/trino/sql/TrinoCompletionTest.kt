@@ -1,6 +1,8 @@
 package dev.sort.trino.sql
 
 import com.intellij.codeInsight.lookup.LookupElement
+import com.intellij.codeInsight.CodeInsightSettings
+import com.intellij.openapi.util.Disposer
 import com.intellij.codeInsight.lookup.LookupElementPresentation
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.brikk.house.sql.intellij.completion.SqlLookupKind
@@ -13,6 +15,10 @@ import javax.swing.Icon
 class TrinoCompletionTest : BasePlatformTestCase() {
     override fun setUp() {
         super.setUp()
+        val settings = CodeInsightSettings.getInstance()
+        val autocomplete = settings.AUTOCOMPLETE_ON_CODE_COMPLETION
+        settings.AUTOCOMPLETE_ON_CODE_COMPLETION = false
+        Disposer.register(testRootDisposable) { settings.AUTOCOMPLETE_ON_CODE_COMPLETION = autocomplete }
         setSqlDialectMapping(project, null, TrinoSqlDialect)
     }
 
@@ -113,11 +119,15 @@ class TrinoCompletionTest : BasePlatformTestCase() {
         myFixture.checkResult("SELECT CAST(<caret>)")
     }
 
-    fun testSequenceRetainsScalarAndTableEntries() {
+    fun testSequenceUsesTheKindOfItsCompletionPosition() {
         val entries = complete("SELECT seq<caret>").mapNotNull { it.`object` as? FunctionPresentation }
             .filter { it.name == "sequence" }
-        assertEquals(2, entries.size)
-        assertEquals(setOf(FunctionKind.SCALAR, FunctionKind.TABLE_VALUED), entries.map { it.kind }.toSet())
+        assertEquals(1, entries.size)
+        assertEquals(FunctionKind.SCALAR, entries.single().kind)
+        val tables = complete("SELECT * FROM seq<caret>").mapNotNull { it.`object` as? FunctionPresentation }
+            .filter { it.name == "sequence" }
+        assertEquals(1, tables.size)
+        assertEquals(FunctionKind.TABLE_VALUED, tables.single().kind)
     }
 
     fun testReservedKeywordCompletes() {
