@@ -6,6 +6,7 @@ import com.intellij.openapi.util.Disposer
 import com.intellij.codeInsight.lookup.LookupElementPresentation
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.brikk.house.sql.intellij.completion.SqlLookupKind
+import dev.brikk.house.sql.intellij.completion.SqlLookupIcons
 import dev.brikk.house.sql.metadata.FunctionKind
 import dev.brikk.house.sql.metadata.FunctionPresentation
 import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
@@ -74,7 +75,7 @@ class TrinoCompletionTest : BasePlatformTestCase() {
 
     fun testWindowPresentation() {
         assertPresentation("SELECT row_num<caret> FROM t;", "row_number",
-            SqlLookupKind.WINDOW, DatabaseIcons.Function, "window")
+            SqlLookupKind.WINDOW, SqlLookupIcons.WindowFunction, "window")
     }
 
     fun testTableFunctionPresentation() {

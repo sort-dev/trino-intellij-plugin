@@ -10,7 +10,6 @@ import dev.brikk.house.sql.intellij.completion.SqlLookupKind
 import dev.brikk.house.sql.intellij.completion.SqlLookupStyles
 import dev.brikk.house.sql.metadata.TRINO_METADATA
 import dev.sort.trino.catalog.TrinoLiveCatalogService
-import icons.DatabaseIcons
 
 object TrinoCompletionProfile : SqlCompletionProfile {
     override val language get() = TrinoSqlDialect
@@ -32,8 +31,6 @@ object TrinoCompletionProfile : SqlCompletionProfile {
                     showsSignature = false, showsReturnType = true)
             }.toTypedArray(),
         )
-    }.let { styles ->
-        styles.with(SqlLookupKind.WINDOW to styles[SqlLookupKind.WINDOW].copy(icon = DatabaseIcons.Function))
     }
 }
 

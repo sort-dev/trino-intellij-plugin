@@ -187,6 +187,7 @@ open class BrikkTrinoInjectionTest : BasePlatformTestCase() {
         amount.renderElement(presentation)
         assertEquals("brikk column (src)", presentation.tailText?.trim())
         assertEquals("Double?", presentation.typeText)
+        assertEquals(dev.brikk.house.sql.intellij.completion.SqlLookupIcons.BrikkColumn, presentation.icon)
     }
     fun testBrikkColumnCompletionWithProjectPipesOff() {
         assertFalse(project.service<TrinoPipesSettings>().enabled)

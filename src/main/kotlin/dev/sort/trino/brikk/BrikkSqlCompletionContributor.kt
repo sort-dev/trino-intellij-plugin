@@ -7,6 +7,7 @@ import com.intellij.util.ProcessingContext
 import dev.brikk.house.intellij.ColumnNullability
 import dev.brikk.house.intellij.NavigationKind
 import dev.brikk.house.sql.intellij.SqlColumnCompletion
+import dev.brikk.house.sql.intellij.SqlColumnFacts
 
 class BrikkSqlCompletionContributor : CompletionContributor() {
     init { extend(CompletionType.BASIC, PlatformPatterns.psiElement(), Provider) }
@@ -30,8 +31,9 @@ class BrikkSqlCompletionContributor : CompletionContributor() {
                         ColumnNullability.UNKNOWN -> null
                     }
                     val origin = if (column.navigation?.kind == NavigationKind.RELATION_FALLBACK) "relation contract" else "brikk column"
-                    result.caseInsensitive().addElement(SqlColumnCompletion.create(
-                        column.name, column.kotlinClassId?.substringAfterLast('.'), nullable, row.alias, origin))
+                    result.caseInsensitive().addElement(SqlColumnCompletion.create(SqlColumnFacts(
+                        column.name, column.kotlinClassId?.substringAfterLast('.'), nullable, row.alias, origin,
+                        source = row.alias.takeIf { it.isNotBlank() })))
                 }
         }
     }
