@@ -191,8 +191,8 @@ open class BrikkTrinoInjectionTest : BasePlatformTestCase() {
             @BrikkSql fun query(src: Rel<Events>) = Sql.trino("SELECT e.amount FROM ${'$'}src() AS e")
         """.trimIndent())
         var file = injected(host)
-        val shape = (BrikkTrinoProfile.contracts(file)["src"] as ShapeResult.Available).shape
-        assertEquals(ShapeKnowledge.PARTIAL, shape.knowledge)
+        val shape = (BrikkRelationFacts(BrikkDialect.TRINO).facts(file) as BrikkRelationFactsResult.Available).facts.slots.getValue("src")
+        assertEquals(dev.brikk.house.sql.scope.Knowledge.PARTIAL, shape.knowledge)
         assertEquals(setOf("id", "amount"), shape.columns.map { it.name }.toSet())
         val ref = PsiTreeUtil.findChildrenOfType(file, SqlReferenceExpression::class.java).first { it.text == "e.amount" }
         val resolved = ref.reference.resolve()
@@ -205,7 +205,7 @@ open class BrikkTrinoInjectionTest : BasePlatformTestCase() {
         PsiDocumentManager.getInstance(project).commitAllDocuments()
         host = PsiTreeUtil.findChildrenOfType(myFixture.file, KtStringTemplateExpression::class.java).last()
         file = injected(host)
-        assertTrue((BrikkTrinoProfile.contracts(file)["src"] as ShapeResult.Available).shape.columns.any { it.name == "region" })
+        assertTrue((BrikkRelationFacts(BrikkDialect.TRINO).facts(file) as BrikkRelationFactsResult.Available).facts.slots.getValue("src").columns.any { it.name == "region" })
     }
     fun testPipeCompletionAndProjectionVisibility() {
         val host = configure("""
@@ -220,6 +220,43 @@ open class BrikkTrinoInjectionTest : BasePlatformTestCase() {
         assertEquals("brikk column (src)", presentation.tailText?.trim())
         assertEquals("Double?", presentation.typeText)
         assertEquals(dev.brikk.house.sql.intellij.completion.SqlLookupIcons.BrikkColumn, presentation.icon)
+    }
+    fun testKotlinColumnRenameUpdatesSqlReferences() {
+        val host = configure("""
+            interface Events : Partial { val amount: Double? }
+            @BrikkSql fun query(src: Rel<Events>) = Sql.trino("SELECT e.amount FROM ${'$'}src() AS e WHERE e.amount > 0")
+        """.trimIndent())
+        val file = injected(host)
+        val references = PsiTreeUtil.findChildrenOfType(file, SqlReferenceExpression::class.java).filter { it.text == "e.amount" }
+        assertEquals(2, references.size)
+        val declaration = references.first().reference.resolve()!!.navigationElement
+        assertEquals("amount", (declaration as PsiNamedElement).name)
+        assertTrue(references.all { it.reference.isReferenceTo(declaration) })
+        RenameProcessor(project, declaration, "total", false, false).run()
+        assertTrue(myFixture.editor.document.text, "val total: Double?" in myFixture.editor.document.text)
+        assertFalse(myFixture.editor.document.text, "e.amount" in myFixture.editor.document.text)
+        assertEquals(2, Regex("e\\.total").findAll(myFixture.editor.document.text).count())
+    }
+    fun testLineageKnownRenameKeepsBrikkPresentation() {
+        val host = configure("""
+            interface Events : Partial { val amount: Double?; val amount_total: Double }
+            @BrikkSql fun query(src: Rel<Events>) = Sql.trino("FROM ${'$'}src() |> SELECT amount AS renamed, amount_total |> WHERE ren<caret>")
+        """.trimIndent())
+        injected(host)
+        com.intellij.codeInsight.CodeInsightSettings.getInstance().let { settings ->
+            val previous = settings.AUTOCOMPLETE_ON_CODE_COMPLETION
+            settings.AUTOCOMPLETE_ON_CODE_COMPLETION = false
+            try {
+                myFixture.completeBasic()
+                val item = myFixture.lookupElements.orEmpty().single { it.lookupString == "renamed" }
+                val shown = com.intellij.codeInsight.lookup.LookupElementPresentation().also(item::renderElement)
+                assertEquals("brikk column (src)", shown.tailText?.trim())
+                assertEquals("Double?", shown.typeText)
+                assertEquals(dev.brikk.house.sql.intellij.completion.SqlLookupIcons.BrikkColumn, shown.icon)
+            } finally {
+                settings.AUTOCOMPLETE_ON_CODE_COMPLETION = previous
+            }
+        }
     }
     fun testBrikkColumnCompletionWithProjectPipesOff() {
         assertFalse(project.service<TrinoPipesSettings>().enabled)

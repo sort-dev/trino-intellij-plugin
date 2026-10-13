@@ -1,4 +1,7 @@
 <idea-plugin>
+    <extensions defaultExtensionNs="dev.sort.trino-intellij-plugin">
+        <relationFacts implementation="dev.sort.trino.brikk.kotlin.TrinoBrikkRelationFacts"/>
+    </extensions>
     <extensions defaultExtensionNs="com.intellij">
         <languageInjectionContributor language="kotlin" implementationClass="dev.sort.trino.brikk.kotlin.BrikkTrinoHostSqlInjector" order="first"/>
         <languageInjectionPerformer language="kotlin" implementationClass="dev.sort.trino.brikk.kotlin.BrikkTrinoHostSqlInjector" order="first"/>

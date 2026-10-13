@@ -15,7 +15,6 @@ class BrikkTrinoHostSqlInjector : HostSqlInjector(TrinoHostSql, TrinoSqlDialect)
 
     public override fun claim(host: PsiLanguageInjectionHost): HostSqlClaim {
         host.putUserData(BrikkTrinoProfile.KEY, null)
-        host.putUserData(BrikkTrinoProfile.RELATIONS, null)
         val state = BrikkHosts.state(host)
         if (state.dialect != BrikkDialect.TRINO) return HostSqlClaim.NotClaimed
         val pending = state is BrikkHostState.Pending
@@ -26,12 +25,6 @@ class BrikkTrinoHostSqlInjector : HostSqlInjector(TrinoHostSql, TrinoSqlDialect)
         }
         val profile = BrikkTrinoProfile(context.binds, context.slots, context.entries.mapNotNull { it.problem })
         host.putUserData(BrikkTrinoProfile.KEY, profile)
-        // Retained only until the next relation-feature migration commit.
-        val pointer = SmartPointerManager.getInstance(host.project).createSmartPsiElementPointer(host)
-        host.putUserData(BrikkTrinoProfile.RELATIONS) {
-            (pointer.element?.let { BrikkHosts.state(it, includeShapes = true) } as? BrikkHostState.Recognized)
-                ?.context?.takeIf { it.dialect == BrikkDialect.TRINO }?.relations.orEmpty()
-        }
         val entries = HostSqlEntries(context.entries.map {
             HostSqlEntry(TextRange(it.range.start, it.range.end), it.replacement, it.placeholder)
         }, context.trimSteps.map {

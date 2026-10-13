@@ -104,16 +104,20 @@
     </extensions>
     <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="/META-INF/trino-pipes.xml" xpointer="xpointer(/idea-plugin/*)"/>
 
+    <extensionPoints>
+        <extensionPoint name="relationFacts" interface="dev.brikk.house.sql.intellij.relation.ExternalRelationFacts" dynamic="true"/>
+    </extensionPoints>
+
     <extensions defaultExtensionNs="com.intellij">
         <postStartupActivity implementation="dev.sort.trino.catalog.TrinoExecutionObserverStartup"/>
-        <sql.resolveExtension implementation="dev.sort.trino.brikk.BrikkSqlResolveExtension"/>
-        <sql.inspectionSuppressorDelegate implementation="dev.sort.trino.brikk.BrikkSqlInspectionSuppressor"/>
+        <sql.resolveExtension implementation="dev.sort.trino.brikk.TrinoRelationResolveExtension"/>
+        <sql.inspectionSuppressorDelegate implementation="dev.sort.trino.brikk.TrinoRelationInspectionSuppressor"/>
         <completion.contributor language="TrinoSQL" implementationClass="dev.sort.trino.pipes.TrinoPipesCompletionContributor" order="first, before trino.metadata"/>
         <completion.contributor language="TrinoSQL" implementationClass="dev.sort.trino.sql.TrinoMetadataCompletionContributor" id="trino.metadata" order="first"/>
-        <completion.contributor language="TrinoSQL" implementationClass="dev.sort.trino.brikk.BrikkSqlCompletionContributor"/>
+        <completion.contributor language="TrinoSQL" implementationClass="dev.sort.trino.brikk.TrinoRelationCompletionContributor" order="first"/>
         <annotator language="TrinoSQL" implementationClass="dev.sort.trino.pipes.TrinoPipeStageKeywordAnnotator"/>
-        <annotator language="TrinoSQL" implementationClass="dev.sort.trino.brikk.BrikkSqlContractAnnotator"/>
-        <gotoDeclarationHandler implementation="dev.sort.trino.brikk.BrikkSqlGotoDeclarationHandler"/>
+        <annotator language="TrinoSQL" implementationClass="dev.sort.trino.brikk.TrinoRelationAnnotator"/>
+        <gotoDeclarationHandler implementation="dev.sort.trino.brikk.TrinoRelationGotoDeclarationHandler"/>
         <lang.parserDefinition language="TrinoSQL" implementationClass="dev.sort.trino.sql.TrinoParserDefinition"/>
         <lang.commenter language="TrinoSQL" implementationClass="com.intellij.database.sql.common.core.psi.impl.support.SqlNestedCommenter"/>
         <lang.quoteHandler language="TrinoSQL" implementationClass="dev.sort.trino.sql.TrinoQuoteHandler"/>
