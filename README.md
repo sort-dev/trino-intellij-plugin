@@ -86,9 +86,10 @@ the same 261-compiled classes. The generated-shape test runs on `test262` with
 `-Ptest.ide262=/path/to/IDEA-262.9437.185` and
 `-Ptest.brikkCompilerPlugin=/path/to/the/reviewed/compiler-plugin.jar`.
 
-SQL core/metadata 0.19.1 and Brikk Kotlin support 0.2.0 resolve from Maven Central.
-SQL IntelliJ support and test-support 0.1.2-SNAPSHOT resolve from Maven Local through
-the shared convention's snapshot-only filter. The ZIP embeds the runtime helpers,
+SQL core/metadata and verification 0.20.0-SNAPSHOT, plus SQL IntelliJ support and
+test-support 0.2.0-SNAPSHOT, resolve from Maven Local through the shared convention's
+snapshot-only filter. The reviewed SQL baseline is `e7f1cc9`, published locally on
+2026-10-13. Brikk Kotlin support 0.2.0 resolves from Maven Central. The ZIP embeds the runtime helpers,
 never test-support, so installation requires no Maven setup.
 
 ## Built-in PIPE queries
