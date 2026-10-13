@@ -95,10 +95,21 @@ class TrinoPipesPlatformTest : BasePlatformTestCase() {
         dev.brikk.house.sql.intellij.testing.setSqlDialectMapping(project, null, TrinoSqlDialect)
         project.service<TrinoPipesSettings>().enabled = true
         myFixture.configureByText("pipe-keywords.sql", "FROM t |> <caret>")
-        myFixture.completeBasic()
-        assertTrue(myFixture.lookupElementStrings.orEmpty().contains("ORDER BY"))
-        assertFalse(myFixture.lookupElementStrings.orEmpty().contains("CURRENT_TIMESTAMP"))
-        assertFalse(myFixture.lookupElementStrings.orEmpty().contains("CREATE"))
+        val stages = myFixture.completeBasic().orEmpty()
+        val expected = setOf(
+            "AGGREGATE", "AS", "DISTINCT", "EXTEND", "LIMIT", "OFFSET", "ORDER BY", "SELECT", "WHERE", "WINDOW",
+            "JOIN", "INNER JOIN", "CROSS JOIN", "LEFT JOIN", "LEFT OUTER JOIN", "RIGHT JOIN", "RIGHT OUTER JOIN",
+            "FULL JOIN", "FULL OUTER JOIN", "SEMI JOIN", "ANTI JOIN", "TABLESAMPLE", "UNION",
+            "UNION ALL", "UNION DISTINCT", "INTERSECT", "INTERSECT ALL", "INTERSECT DISTINCT", "EXCEPT", "EXCEPT ALL", "EXCEPT DISTINCT",
+        )
+        assertEquals(expected, stages.map { it.lookupString }.toSet())
+        assertEquals(expected.size, stages.size)
+        for (stage in stages) {
+            val presentation = com.intellij.codeInsight.lookup.LookupElementPresentation().also(stage::renderElement)
+            assertTrue(presentation.isItemTextBold)
+            assertEquals(dev.brikk.house.sql.intellij.completion.SqlLookupStyles.DEFAULT[
+                dev.brikk.house.sql.intellij.completion.SqlLookupKind.PIPE_STAGE].typeText, presentation.typeText)
+        }
         com.intellij.codeInsight.lookup.LookupManager.getInstance(project).hideActiveLookup()
         myFixture.configureByText("pipe-columns.sql", "FROM t |> SELECT id AS my_output, id AS my_other |> WHERE my_<caret>")
         myFixture.completeBasic()

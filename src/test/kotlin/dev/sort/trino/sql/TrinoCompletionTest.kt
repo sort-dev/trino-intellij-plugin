@@ -3,6 +3,8 @@ package dev.sort.trino.sql
 import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.codeInsight.CodeInsightSettings
 import com.intellij.openapi.util.Disposer
+import com.intellij.sql.formatter.settings.SqlCodeStyleConst
+import com.intellij.sql.formatter.settings.SqlCodeStyles
 import com.intellij.codeInsight.lookup.LookupElementPresentation
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.brikk.house.sql.intellij.completion.SqlLookupKind
@@ -129,6 +131,70 @@ class TrinoCompletionTest : BasePlatformTestCase() {
             .filter { it.name == "sequence" }
         assertEquals(1, tables.size)
         assertEquals(FunctionKind.TABLE_VALUED, tables.single().kind)
+    }
+
+    fun testBareTableFunctionInsertsTableWrapper() {
+        for (prefix in listOf("FROM ", "SELECT * FROM ")) {
+            accept("${prefix}seq<caret>", "sequence")
+            myFixture.checkResult("${prefix}TABLE(sequence(<caret>))")
+        }
+    }
+
+    fun testExistingTableFunctionCallIsWrapped() {
+        for (prefix in listOf("FROM ", "SELECT * FROM ")) {
+            accept("${prefix}seq<caret>(1, 3)", "sequence")
+            myFixture.checkResult("${prefix}TABLE(sequence(<caret>1, 3))")
+        }
+    }
+
+    fun testInsideTableUsesPlainFunctionCall() {
+        for (prefix in listOf("FROM ", "SELECT * FROM ")) {
+            accept("${prefix}TABLE(seq<caret>)", "sequence")
+            myFixture.checkResult("${prefix}TABLE(sequence(<caret>))")
+            accept("${prefix}TABLE(seq<caret>(1, 3))", "sequence")
+            myFixture.checkResult("${prefix}TABLE(sequence(<caret>1, 3))")
+        }
+    }
+
+    fun testUnnestRemainsAnUnwrappedRelation() {
+        accept("FROM UNN<caret>", "UNNEST")
+        myFixture.checkResult("FROM UNNEST(<caret>)")
+        accept("FROM UNN<caret>(ARRAY[1, 2])", "UNNEST")
+        myFixture.checkResult("FROM UNNEST(<caret>ARRAY[1, 2])")
+    }
+
+    fun testJsonTableRemainsAnUnwrappedGrammarForm() {
+        accept("FROM JSON_<caret>", "JSON_TABLE")
+        myFixture.checkResult("FROM JSON_TABLE<caret>")
+        accept("FROM JSON_<caret>", "JSON_TABLE", '(')
+        myFixture.checkResult("FROM JSON_TABLE(<caret>)")
+    }
+
+    fun testExtractFromOffersScalarsNotTableFunctions() {
+        val entries = complete("SELECT EXTRACT(YEAR FROM seq<caret>)").mapNotNull { it.`object` as? FunctionPresentation }
+            .filter { it.name == "sequence" }
+        assertEquals(1, entries.size)
+        assertEquals(FunctionKind.SCALAR, entries.single().kind)
+        accept("SELECT EXTRACT(YEAR FROM ab<caret>)", "abs")
+        myFixture.checkResult("SELECT EXTRACT(YEAR FROM abs(<caret>))")
+    }
+
+    fun testDelegatedKeywordCaseRespectsCodeStyleAndKeepsFunctionNamesLowerCase() {
+        myFixture.configureByText("completion.sql", "SELECT 1; se<caret>")
+        val settings = SqlCodeStyles.getSqlSettings(myFixture.file)
+        val previous = settings.KEYWORD_CASE
+        try {
+            for ((case, expected) in listOf(SqlCodeStyleConst.DO_NOT_CHANGE to "SELECT", SqlCodeStyleConst.TO_LOWER to "select", SqlCodeStyleConst.TO_UPPER to "SELECT")) {
+                settings.KEYWORD_CASE = case
+                val keyword = complete("SELECT 1; se<caret>").single { it.lookupString.equals("SELECT", ignoreCase = true) }
+                assertEquals(expected, keyword.lookupString)
+                myFixture.lookup.currentItem = keyword
+                myFixture.finishLookup('\n')
+                assertEquals(expected, myFixture.editor.document.text.substringAfter(';').trim())
+                accept("SELECT AB<caret>", "abs")
+                myFixture.checkResult("SELECT abs(<caret>)")
+            }
+        } finally { settings.KEYWORD_CASE = previous }
     }
 
     fun testReservedKeywordCompletes() {
