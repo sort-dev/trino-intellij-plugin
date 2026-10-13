@@ -9,6 +9,7 @@ dependencyResolutionManagement {
             version("brikk-sql-core", "0.20.0-SNAPSHOT")
             version("brikk-sql-verify", "0.20.0-SNAPSHOT")
             version("brikk-sql-intellij-support", "0.2.0-SNAPSHOT")
+            version("brikk-engine-kotlin-intellij-support", "0.3.0-SNAPSHOT")
         }
     }
 }
