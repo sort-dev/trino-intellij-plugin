@@ -7,6 +7,7 @@ import com.intellij.database.plan.PlanModel
 import com.intellij.database.util.Version
 import com.intellij.util.Consumer
 
+/** Blocks inherited PostgreSQL graphical plans and ANALYZE; text EXPLAIN has its own cooperative action. */
 class TrinoExplainPlanProvider : ExplainPlanProvider(TrinoDbms.TRINO_BRIKK) {
     override fun isSupported(version: Version, analyze: Boolean): Boolean = false
 

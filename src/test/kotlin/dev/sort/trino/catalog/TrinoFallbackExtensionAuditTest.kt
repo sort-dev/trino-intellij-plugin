@@ -10,7 +10,6 @@ class TrinoFallbackExtensionAuditTest : BasePlatformTestCase() {
         val allowed = mutableMapOf(
             "com.intellij.database.dataImporter" to "Retain existing import behavior; PostgreSQL target-type defaults need a separate Trino review.",
             "com.intellij.database.databaseViewStructureExtension" to "Retain existing tree structure; PostgreSQL-only node grouping needs a separate Trino review.",
-            "com.intellij.database.definitionProvider" to "Retain existing definition lookup; PostgreSQL definition assumptions need a separate Trino review.",
             "com.intellij.database.dmlHelper" to "Retain existing grid DML behavior; PostgreSQL editable-object policies need a separate Trino review.",
             "com.intellij.database.domainRegistry" to "Retain the PostgreSQL model's domain registry; Trino type domains need a separate review.",
             "com.intellij.database.executionEnvironmentHelper" to "Retain existing session handling; PostgreSQL-specific environment operations need a separate Trino review.",

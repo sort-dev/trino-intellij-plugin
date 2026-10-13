@@ -159,6 +159,8 @@
              agreement (doris ClassCast lesson) — all three sit on the PG family. -->
         <extensionFallback dbms="TRINO_BRIKK" fallbackDbms="POSTGRES"/>
         <explainPlanProvider dbms="TRINO_BRIKK" implementationClass="dev.sort.trino.TrinoExplainPlanProvider"/>
+        <definitionProvider dbms="TRINO_BRIKK" implementationClass="dev.sort.trino.TrinoDefinitionProvider"/>
+        <dynamicActionConfigurationCustomizer implementation="dev.sort.trino.catalog.TrinoTextExplainConfiguration"/>
         <dialect dbms="TRINO_BRIKK" implementationClass="dev.sort.trino.TrinoDatabaseDialect"/>
         <modelFacade dbms="TRINO_BRIKK" implementationClass="dev.sort.trino.TrinoModelFacade"/>
         <!-- THE LANDMINE FIX (truth battery): dbms-exact registration shadows the POSTGRES
