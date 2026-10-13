@@ -21,6 +21,7 @@ import dev.brikk.house.sql.intellij.parser.wordThenToken
 import dev.brikk.house.sql.intellij.parser.wordThenWord
 import dev.brikk.house.sql.intellij.pipe.PipeStatementGate
 import dev.sort.trino.brikk.BrikkTrinoProfile
+import dev.sort.trino.brikk.TrinoHostSql
 import dev.sort.trino.pipes.TrinoPipeDialect
 
 class TrinoPsiParser : PgParser(false) {
@@ -95,7 +96,7 @@ class TrinoPsiParser : PgParser(false) {
 
     override fun parseParameterOrVariableReference(builder: PsiBuilder, allowVariable: Boolean): Boolean {
         val file = builder.getUserData(FileContextUtil.CONTAINING_FILE_KEY)
-        if (BrikkTrinoProfile.forFile(file) != null && builder.parseColonParameter()) return true
+        if (TrinoHostSql.parsesColonBinds(file) && builder.parseColonParameter()) return true
         return super.parseParameterOrVariableReference(builder, allowVariable)
     }
 

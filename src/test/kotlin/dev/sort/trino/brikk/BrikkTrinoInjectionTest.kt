@@ -80,6 +80,39 @@ open class BrikkTrinoInjectionTest : BasePlatformTestCase() {
         assertEquals(listOf("src"), BrikkTrinoProfile.forFile(file)!!.slots)
         assertEmpty(BrikkTrinoProfile.forFile(file)!!.issues)
     }
+    fun testSharedInjectorUsesCustomMarginAndOrderedTrims() {
+        val host = configure("""
+            @BrikkSql fun query(id: Int) = Sql.trino(""${'"'}
+                #SELECT ${'$'}id AS id
+                #FROM customers
+            ""${'"'}.trimMargin("#").trimIndent())
+        """.trimIndent())
+        val file = injected(host)
+        assertEquals("-- dialect: trino\nSELECT :id AS id\nFROM customers", PipeText.of(file).text)
+        assertTrue(TrinoHostSql.parsesColonBinds(file))
+    }
+
+    fun testPendingClaimsUseOnlyHelperProjectionAndPlaceholders() {
+        val host = configure("@BrikkSql fun query(id: Int) = Sql.trino(\"SELECT ${'$'}id AS id\")")
+        val injector = dev.sort.trino.brikk.kotlin.BrikkTrinoHostSqlInjector()
+        assertInstanceOf(injector.claim(host), dev.brikk.house.sql.intellij.host.HostSqlClaim.Injected::class.java)
+        com.intellij.testFramework.DumbModeTestUtils.computeInDumbModeSynchronously(project,
+            com.intellij.openapi.util.ThrowableComputable<Unit, Throwable> {
+                val claim = injector.claim(host) as dev.brikk.house.sql.intellij.host.HostSqlClaim.Injected
+                assertTrue(claim.pending)
+                assertTrue(claim.inspectionOnly)
+                assertTrue(claim.entries.entries.filter { it.replacement != null }.all { it.placeholder })
+            })
+        val unseen = configure("""
+            import dev.brikk.house.sql.runtime.Sql
+            import dev.brikk.house.sql.runtime.BrikkSql
+            @BrikkSql fun query(id: Int) = Sql.trino("SELECT ${'$'}id AS id")
+        """.trimIndent())
+        com.intellij.testFramework.DumbModeTestUtils.computeInDumbModeSynchronously(project,
+            com.intellij.openapi.util.ThrowableComputable<Unit, Throwable> {
+                assertInstanceOf(injector.claim(unseen), dev.brikk.house.sql.intellij.host.HostSqlClaim.Unavailable::class.java)
+            })
+    }
     fun testBrikkParseErrorHighlightsTheWholeToken() {
         for (sql in listOf("SELECT 1 FROM", "SELECT \\\"face\\\" FROM")) {
             val file = injected(configure("@BrikkSql fun query() = Sql.trino(\"$sql\")"))
