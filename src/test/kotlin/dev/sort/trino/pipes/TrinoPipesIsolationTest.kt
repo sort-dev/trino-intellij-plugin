@@ -13,6 +13,11 @@ class TrinoPipesIsolationTest : BasePlatformTestCase() {
         val plugin = PluginManagerCore.getPlugin(PluginId.getId("dev.sort.trino-intellij-plugin"))!!
         val loader = plugin.pluginClassLoader!!
         assertEquals("com.intellij.ide.plugins.cl.PluginClassLoader", loader.javaClass.name)
+        for (name in listOf("clickhouse", "doris", "duckdb", "sql-transpiler")) {
+            val peer = PluginManagerCore.getPlugin(PluginId.getId("dev.sort.$name-intellij-plugin"))
+            assertNotNull("Required local sibling was not loaded: $name", peer)
+            assertNotNull("Required local sibling has no loader: $name", peer!!.pluginClassLoader)
+        }
         val fragment = loader.loadClass("dev.brikk.house.sql.shape.SqlFragment")
         for (name in listOf(fragment.name, "dev.brikk.house.sql.intellij.CooperativeExecuteAction", "dev.brikk.house.intellij.ColumnContract",
             "dev.brikk.house.sql.intellij.pipe.PipeDialect", "dev.brikk.house.sql.intellij.pipe.PipeExecuteInterceptor",
@@ -34,7 +39,9 @@ class TrinoPipesIsolationTest : BasePlatformTestCase() {
             "dev.brikk.house.sql.intellij.catalog.LiveCatalogService", "dev.brikk.house.sql.intellij.catalog.HarvestConnectionInterceptor",
             "dev.brikk.house.sql.intellij.catalog.LiveCatalogCleanup", "dev.brikk.house.sql.intellij.catalog.LiveCatalogStore",
             "dev.brikk.house.sql.intellij.catalog.ExecutionObserver", "dev.brikk.house.sql.intellij.catalog.ExecutionObserverProfile",
-            "dev.brikk.house.sql.intellij.catalog.ExecutionObserverStartup", "dev.brikk.house.sql.intellij.catalog.StatementHeadDetector"))
+            "dev.brikk.house.sql.intellij.catalog.ExecutionObserverStartup", "dev.brikk.house.sql.intellij.catalog.StatementHeadDetector",
+            "dev.brikk.house.sql.intellij.diagnostics.NativeErrorAnnotator", "dev.brikk.house.sql.intellij.diagnostics.NativeErrorProfile",
+            "dev.brikk.house.sql.intellij.catalog.ShowCreateDefinitionProvider", "dev.brikk.house.sql.intellij.catalog.TextExplainService"))
             assertSame(name, loader, loader.loadClass(name).classLoader)
         assertEquals("dev.brikk.house.sql.intellij.lexer.MaskingSqlLexer",
             loader.loadClass("dev.sort.trino.sql.TrinoLexer").superclass.name)
@@ -44,6 +51,10 @@ class TrinoPipesIsolationTest : BasePlatformTestCase() {
             loader.loadClass("dev.sort.trino.TrinoModelFacade").superclass.name)
         assertEquals("dev.brikk.house.sql.intellij.catalog.GenericJdbcIntrospectorGate",
             loader.loadClass("dev.sort.trino.TrinoIntrospectorGate").superclass.name)
+        assertEquals("dev.brikk.house.sql.intellij.diagnostics.NativeErrorAnnotator",
+            loader.loadClass("dev.sort.trino.validate.TrinoErrorAnnotator").superclass.name)
+        assertEquals("dev.brikk.house.sql.intellij.catalog.ShowCreateDefinitionProvider",
+            loader.loadClass("dev.sort.trino.TrinoDefinitionProvider").superclass.name)
         for ((consumer, shared) in mapOf(
             "TrinoAutoIntrospectService" to "AutoIntrospectService",
             "TrinoIntrospectBannerProvider" to "IntrospectBannerProvider",
@@ -96,8 +107,8 @@ class TrinoPipesIsolationTest : BasePlatformTestCase() {
         val result = fragment.getMethod("toExecutable", String::class.java, Boolean::class.javaPrimitiveType, Boolean::class.javaPrimitiveType)
             .invoke(value, "trino", true, true)
         assertFalse((result.javaClass.getMethod("getSql").invoke(result) as String).contains("|>"))
-        for (name in listOf("doris", "duckdb", "sql-transpiler")) {
-            val peer = PluginManagerCore.getPlugin(PluginId.getId("dev.sort.$name-intellij-plugin")) ?: continue
+        for (name in listOf("clickhouse", "doris", "duckdb", "sql-transpiler")) {
+            val peer = PluginManagerCore.getPlugin(PluginId.getId("dev.sort.$name-intellij-plugin"))!!
             assertNotSame(fragment, peer.pluginClassLoader!!.loadClass(fragment.name))
             val metadata = "dev.brikk.house.sql.metadata.DialectMetadata"
             assertNotSame(loader.loadClass(metadata), peer.pluginClassLoader!!.loadClass(metadata))
@@ -136,7 +147,7 @@ class TrinoPipesIsolationTest : BasePlatformTestCase() {
             }
             assertTrue(types.toString(), types.any { it == "dev.brikk.house.sql.intellij.CooperativeExecuteAction" })
             assertTrue(types.toString(), types.last().startsWith("com.intellij.database.actions.RunQueryAction"))
-            for (peer in listOf("doris", "duckdb")) {
+            for (peer in listOf("clickhouse", "doris", "duckdb")) {
                 PluginManagerCore.getPlugin(PluginId.getId("dev.sort.$peer-intellij-plugin"))?.let { plugin ->
                     val peerAction = plugin.pluginClassLoader!!.loadClass("dev.brikk.house.sql.intellij.CooperativeExecuteAction")
                     assertSame(plugin.pluginClassLoader, peerAction.classLoader)
