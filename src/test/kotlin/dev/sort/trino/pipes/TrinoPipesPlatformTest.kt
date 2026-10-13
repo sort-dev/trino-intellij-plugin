@@ -48,6 +48,9 @@ class TrinoPipesPlatformTest : BasePlatformTestCase() {
     }
     fun testSettingKeepsPersistedEnabledOptionAndAppliesCheckbox() {
         val settings = project.service<TrinoPipesSettings>()
+        val state = TrinoPipesSettings::class.java.getAnnotation(com.intellij.openapi.components.State::class.java)
+        assertEquals("TrinoPipesSettings", state.name)
+        assertEquals(listOf(ToggleSettings.STORAGE), state.storages.map { it.value })
         assertInstanceOf(settings.state, ToggleSettings.Options::class.java)
         val configurable = TrinoPipesConfigurable(project)
         try {

@@ -5,6 +5,7 @@ import com.intellij.codeInsight.CodeInsightSettings
 import com.intellij.openapi.util.Disposer
 import com.intellij.sql.formatter.settings.SqlCodeStyleConst
 import com.intellij.sql.formatter.settings.SqlCodeStyles
+import com.intellij.sql.dialects.BuiltinFunction
 import com.intellij.codeInsight.lookup.LookupElementPresentation
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.brikk.house.sql.intellij.completion.SqlLookupKind
@@ -212,5 +213,19 @@ class TrinoCompletionTest : BasePlatformTestCase() {
         val items = complete("SELECT 1; SE<caret>")
         assertEquals(items.map { it.lookupString }.toString(), 1,
             items.count { it.lookupString.equals("SELECT", ignoreCase = true) })
+    }
+
+    fun testFunctionsAreNotOfferedInStringsOrComments() {
+        for (sql in listOf("SELECT 'ab<caret>'", "SELECT 1 -- ab<caret>", "SELECT 1 /* ab<caret> */", "FROM t |> WHERE status = 'ab<caret>'")) {
+            myFixture.configureByText("completion.sql", sql)
+            myFixture.completeBasic()
+            assertTrue(sql, myFixture.lookupElements.orEmpty().none { it.`object` is FunctionPresentation || it.`object` is BuiltinFunction.Prototype })
+        }
+    }
+
+    fun testStockBuiltinsDoNotDuplicateMetadataFunctions() {
+        val items = complete("SELECT ab<caret>").filter { it.lookupString.equals("abs", ignoreCase = true) }
+        assertEquals(1, items.size)
+        assertInstanceOf(items.single().`object`, FunctionPresentation::class.java)
     }
 }

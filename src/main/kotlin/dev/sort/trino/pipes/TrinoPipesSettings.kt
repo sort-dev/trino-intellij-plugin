@@ -3,7 +3,6 @@ package dev.sort.trino.pipes
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
-import com.intellij.openapi.components.StoragePathMacros
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import dev.brikk.house.sql.intellij.ToggleConfigurable
@@ -11,7 +10,7 @@ import dev.brikk.house.sql.intellij.ToggleSettings
 import dev.sort.trino.sql.TrinoSqlDialect
 
 @Service(Service.Level.PROJECT)
-@State(name = "TrinoPipesSettings", storages = [Storage(StoragePathMacros.WORKSPACE_FILE)])
+@State(name = "TrinoPipesSettings", storages = [Storage(ToggleSettings.STORAGE)])
 class TrinoPipesSettings(project: Project) : ToggleSettings(project, TrinoSqlDialect)
 
 class TrinoPipesConfigurable(private val project: Project) : ToggleConfigurable(
