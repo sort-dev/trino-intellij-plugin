@@ -78,11 +78,15 @@ class TrinoRealSqlContractTest : BasePlatformTestCase() {
                 RealSqlFeature.FULL_JOIN, RealSqlFeature.INTERSECT_EXCEPT, RealSqlFeature.NAMED_WINDOW,
                 RealSqlFeature.UNNEST, RealSqlFeature.LATERAL_SUBQUERY, RealSqlFeature.VALUES_COLUMN_ALIASES,
                 RealSqlFeature.CREATE_TABLE_AS, RealSqlFeature.THREE_PART_NAMES, RealSqlFeature.DOUBLE_QUOTED_IDENTIFIERS,
+                RealSqlFeature.TRINO_TABLE_FUNCTIONS,
             )
             override fun open(sql: String) = this@TrinoRealSqlContractTest.open(sql)
         }
-        println("Trino real SQL contract: ${RealSqlCases.ALL.count { target.features.containsAll(it.needs) }}/${RealSqlCases.ALL.size} applicable cases")
-        RealSqlContract(target).check()
+        // Trino has no PRIMARY KEY / UNIQUE table-constraint syntax. Keep the shared case for
+        // dialects that support it; native Trino rejects it before semantic name resolution.
+        val cases = (RealSqlCases.ALL + RealSqlCases.TABLE_FUNCTIONS).filterNot { it.name == "create-table-own-constraints" }
+        println("Trino real SQL contract: ${cases.count { target.features.containsAll(it.needs) }}/${cases.size} applicable cases")
+        RealSqlContract(target, cases).check()
         RealSqlContract(target).checkModelStates()
         println("Trino external-model contract: ${RealSqlModel.STATES.size} states, ${RealSqlCases.EXTERNAL.size} cases per state")
     }
@@ -91,6 +95,12 @@ class TrinoRealSqlContractTest : BasePlatformTestCase() {
         val resolve = com.intellij.codeInspection.ex.InspectionToolRegistrar.getInstance().createTools()
             .single { it.shortName == "SqlResolveInspection" }.tool
         myFixture.enableInspections(resolve)
+    }
+
+    fun testNativeTrinoRejectsUnsupportedTableConstraints() {
+        val case = RealSqlCases.ALL.single { it.name == "create-table-own-constraints" }
+        assertTrue(dev.sort.trino.validate.TrinoNativeValidation.verify(case.sqlFor("trino")) !=
+            dev.brikk.house.sql.verify.VerifyResult.Accepted)
     }
 
     private fun open(sql: String) {
