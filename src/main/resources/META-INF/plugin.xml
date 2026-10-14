@@ -114,6 +114,7 @@
         <database.runConsoleAvailable implementation="dev.sort.trino.brikk.TrinoHostRunConsoleVeto"/>
         <sql.resolveExtension implementation="dev.sort.trino.brikk.TrinoRelationResolveExtension"/>
         <sql.inspectionSuppressorDelegate implementation="dev.sort.trino.brikk.TrinoRelationInspectionSuppressor"/>
+        <sql.inspectionSuppressorDelegate implementation="dev.sort.trino.sql.TrinoBuiltinInspectionSuppressor"/>
         <completion.contributor language="TrinoSQL" implementationClass="dev.sort.trino.pipes.TrinoPipesCompletionContributor" order="first, before trino.metadata"/>
         <completion.contributor language="TrinoSQL" implementationClass="dev.sort.trino.sql.TrinoMetadataCompletionContributor" id="trino.metadata" order="first"/>
         <completion.contributor language="TrinoSQL" implementationClass="dev.sort.trino.brikk.TrinoRelationCompletionContributor" order="first"/>
