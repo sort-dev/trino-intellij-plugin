@@ -52,10 +52,14 @@ tasks.withType<Test>().configureEach {
     } else {
         exclude("**/BrikkCompilerRelationTest.class")
     }
-    if (name == "test") {
-        providers.systemProperty("trino.live.url")
-            .orElse(providers.gradleProperty("trino.live.url"))
-            .orNull?.let { systemProperty("trino.live.url", it) }
+    providers.systemProperty("trino.live.url")
+        .orElse(providers.gradleProperty("trino.live.url"))
+        .orElse(providers.environmentVariable("TRINO_LIVE_URL"))
+        .orNull?.let { systemProperty("trino.live.url", it) }
+    if (providers.environmentVariable("TRINO_LIVE").orNull == "1") {
+        include("**/TrinoAutoIntrospectLiveTest.class", "**/TrinoLiveCatalogLiveTest.class",
+            "**/TrinoJdbcMetadataTruthTest.class", "**/TrinoPgCatalogLandmineTest.class",
+            "**/TrinoConsoleTruthTest.class", "**/TrinoAuthMatrixTest.class")
     }
 }
 
