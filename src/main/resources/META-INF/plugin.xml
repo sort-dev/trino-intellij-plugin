@@ -119,6 +119,7 @@
         <completion.contributor language="TrinoSQL" implementationClass="dev.sort.trino.brikk.TrinoRelationCompletionContributor" order="first"/>
         <annotator language="TrinoSQL" implementationClass="dev.sort.trino.pipes.TrinoPipeStageKeywordAnnotator"/>
         <annotator language="TrinoSQL" implementationClass="dev.sort.trino.brikk.TrinoRelationAnnotator"/>
+        <annotator language="TrinoSQL" implementationClass="dev.sort.trino.catalog.TrinoReferenceIntrospectAnnotator"/>
         <gotoDeclarationHandler implementation="dev.sort.trino.brikk.TrinoRelationGotoDeclarationHandler"/>
         <lang.parserDefinition language="TrinoSQL" implementationClass="dev.sort.trino.sql.TrinoParserDefinition"/>
         <lang.commenter language="TrinoSQL" implementationClass="com.intellij.database.sql.common.core.psi.impl.support.SqlNestedCommenter"/>

@@ -39,9 +39,8 @@ import java.io.File
  * adds the on-disk `trino-jdbc` jar to the registered driver for the fixture.
  *
  * NOTE (JUnit3): BasePlatformTestCase is a JUnit3 TestCase, which does NOT understand JUnit4
- * assumptions — so "skip" is an early `return` (a silent pass). When a sync fails or times out in
- * the fixture (the in-fixture-connectivity limitation), the test prints `SKIP:` and returns; once a
- * sync succeeds and catalogs enumerate, the deepening assertions are HARD.
+ * assumptions, so only an unconfigured lane returns early. Once enabled, connection, timeout and
+ * model failures are hard failures, not silent skips.
  */
 class TrinoAutoIntrospectLiveTest : BasePlatformTestCase() {
 
@@ -114,22 +113,21 @@ class TrinoAutoIntrospectLiveTest : BasePlatformTestCase() {
     /** Drive one sync, pumping the EDT, retrying once on a benign fixture cancellation. Returns
      *  false (with a SKIP print) only if it truly fails/times out — the in-fixture connectivity
      *  limitation, distinct from a real deepening regression. */
-    private fun awaitSyncOrSkip(contextFactory: () -> LoaderContext, timeoutMs: Long = 60_000): Boolean {
+    private fun awaitSync(contextFactory: () -> LoaderContext, timeoutMs: Long = 60_000) {
         repeat(2) { attempt ->
             try {
                 val future = DataSourceSyncManager.getInstance().tryPerform(contextFactory(), true, false)?.toFuture()
-                    ?: run { println("SKIP: tryPerform returned no task (in-fixture)"); return false }
+                    ?: error("Introspection returned no task")
                 PlatformTestUtil.waitForFuture(future, timeoutMs)
-                return true
+                return
             } catch (t: Throwable) {
                 val cancelled = generateSequence<Throwable>(t) { it.cause }
                     .any { it.javaClass.simpleName.contains("Cancell", true) }
                 if (cancelled && attempt == 0) { println("(sync cancelled; retrying once)"); return@repeat }
-                println("SKIP: in-fixture sync failed/timed out: ${t.javaClass.simpleName}: ${t.message}")
-                return false
+                throw AssertionError("Enabled live introspection failed", t)
             }
         }
-        return false
+        error("Introspection did not finish")
     }
 
     private fun pollUntil(message: String, timeoutSeconds: Int = 45, condition: () -> Boolean) {
@@ -162,15 +160,14 @@ class TrinoAutoIntrospectLiveTest : BasePlatformTestCase() {
         val ds = registerDataSource()
 
         // STAGE 1 — DEFAULT scope (nothing set). Measures the connect-interceptor need.
-        if (!awaitSyncOrSkip({ LoaderContext.selectGeneralTask(project, ds) })) return
-        runCatching { pollUntil("first introspection", 30) { dbModelRoots(ds).isNotEmpty() } }
+        awaitSync({ LoaderContext.selectGeneralTask(project, ds) })
+        pollUntil("first introspection", 30) { dbModelRoots(ds).isNotEmpty() }
         val defaultScope = ReadAction.compute<String, RuntimeException> {
             ds.introspectionScope?.let { TreePatternUtils.serialize(it) } ?: "<null>"
         }
         println("=== STAGE1 default connect: ${treeSnapshot(ds)} ; scope=$defaultScope ===")
 
-        val tpch = rootNamed(ds, "tpch")
-        if (tpch == null) { println("SKIP: no catalogs enumerated in-fixture (connectivity)"); return }
+        val tpch = requireNotNull(rootNamed(ds, "tpch")) { "Enabled live introspection did not enumerate tpch" }
         assertTrue(
             "MEASURED: catalogs enumerate on default connect (no interceptor needed) — tpch/memory/system",
             listOf("tpch", "memory", "system").all { rootNamed(ds, it) != null },

@@ -172,6 +172,34 @@ class TrinoIntrospectionLifecycleTest : BasePlatformTestCase() {
         }
     }
 
+    fun testReferenceHighlightingDeepensCatalogThenSchemaWithoutCompletion() {
+        configure("SELECT orderkey FROM tpch.tiny.orders<caret>")
+        highlightWithModelRefresh()
+        val first = introspections.next()
+        assertEquals(1, first.context.countTasks())
+        assertBanner("tpch")
+        first.finish { catalog.schemas.createOrGet("tiny") }
+        awaitFinished()
+        DbPsiFacade.getInstance(project).clearCaches()
+        highlightWithModelRefresh()
+        val second = introspections.next()
+        assertEquals(1, second.context.countTasks())
+        assertBanner("tpch.tiny")
+        second.finish { catalog.schemas.createOrGet("tiny").tables.createOrGet("orders") }
+        awaitFinished()
+    }
+
+    fun testReferenceTyposAndForeignConsolesDoNotIntrospect() {
+        configure("SELECT * FROM nonexistent.tiny.orders<caret>")
+        highlightWithModelRefresh()
+        introspections.assertNone()
+        configure("SELECT * FROM tpch.tiny.orders<caret>")
+        RecordingConsole(project, myFixture.file.virtualFile, "postgresql").use {
+            highlightWithModelRefresh()
+            introspections.assertNone()
+        }
+    }
+
     fun testForeignConsoleDoesNotIntrospectTrino() {
         RecordingConsole(project, myFixture.file.virtualFile, "postgresql").use {
             completeNamespace()
@@ -255,6 +283,15 @@ class TrinoIntrospectionLifecycleTest : BasePlatformTestCase() {
         com.intellij.codeInsight.lookup.LookupManager.getInstance(project).hideActiveLookup()
         myFixture.completeBasic()
         com.intellij.codeInsight.lookup.LookupManager.getInstance(project).hideActiveLookup()
+    }
+
+    private fun highlightWithModelRefresh() {
+        val file = myFixture.file.virtualFile
+        PlatformTestUtil.dispatchAllEventsInIdeEventQueue()
+        myFixture.configureFromExistingVirtualFile(file)
+        // This pass intentionally starts a model refresh; normal fixture highlighting forbids model changes.
+        com.intellij.testFramework.fixtures.impl.CodeInsightTestFixtureImpl.instantiateAndRun(
+            myFixture.file, myFixture.editor, intArrayOf(), true)
     }
 
     private fun assertChildlessCatalog() {
