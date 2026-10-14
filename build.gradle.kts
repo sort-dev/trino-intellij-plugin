@@ -61,6 +61,39 @@ tasks.withType<Test>().configureEach {
             "**/TrinoJdbcMetadataTruthTest.class", "**/TrinoPgCatalogLandmineTest.class",
             "**/TrinoConsoleTruthTest.class", "**/TrinoAuthMatrixTest.class")
     }
+    val scanDirectory = providers.gradleProperty("realSql.dir").orNull
+    val scanGlob = providers.gradleProperty("realSql.glob").orNull
+    if (scanDirectory == null) {
+        require(scanGlob == null) { "realSql.glob requires realSql.dir" }
+        require(providers.gradleProperty("realSql.extraFile").orNull == null) { "realSql.extraFile requires realSql.dir" }
+        exclude("**/ExternalSqlScanTest.class")
+    } else {
+        require(!scanGlob.isNullOrBlank()) { "External scans require an explicit realSql.glob" }
+        require(file(scanDirectory).isDirectory) { "External scan directory is unavailable" }
+        require(providers.gradleProperty("test.pluginIsolation").orNull != "true") { "External scans and isolation are separate lanes" }
+        include("**/ExternalSqlScanTest.class")
+        systemProperty("realSql.dir", file(scanDirectory).absolutePath)
+        systemProperty("realSql.glob", scanGlob)
+        providers.gradleProperty("realSql.extraFile").orNull?.let { extra ->
+            require(file(extra).isFile && file(extra).extension.equals("sql", true)) { "Explicit extra SQL file is unavailable" }
+            systemProperty("realSql.extraFile", file(extra).absolutePath)
+        }
+        val label = providers.gradleProperty("realSql.label").orNull ?: "scan"
+        require(label.matches(Regex("[A-Za-z0-9_-]+"))) { "realSql.label must be a neutral scratch-directory label" }
+        val scratch = layout.buildDirectory.dir("realsql/$label/$name").get().asFile
+        systemProperty("realSql.output", scratch.absolutePath)
+        // Private SQL must not reach ordinary test reports, IDE caches or reusable test outputs.
+        reports.junitXml.outputLocation.set(scratch.resolve("test-results"))
+        reports.html.outputLocation.set(scratch.resolve("test-report"))
+        binaryResultsDirectory.set(scratch.resolve("test-results/binary"))
+        jvmArgumentProviders.add(org.gradle.process.CommandLineArgumentProvider {
+            listOf("-Didea.log.path=${scratch.resolve("ide-log")}",
+                "-Didea.system.path=${scratch.resolve("ide-system")}",
+                "-Didea.config.path=${scratch.resolve("ide-config")}")
+        })
+        outputs.upToDateWhen { false }
+        outputs.cacheIf { false }
+    }
 }
 
 kotlin {

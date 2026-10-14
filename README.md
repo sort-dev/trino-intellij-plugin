@@ -73,7 +73,7 @@ playbook possible: the editor's error authority IS the engine's grammar, bundled
 ## Building from source
 
 ```bash
-./gradlew buildPlugin   # → build/distributions/trino-intellij-plugin.zip
+./gradlew buildPlugin   # → build/distributions/trino-intellij-plugin-<dev-version>.zip
 ./gradlew test          # boot + driver-facts + parser-authority (census scoreboard arrives with Stage 1)
 ```
 
@@ -92,6 +92,25 @@ snapshot-only filter. The reviewed SQL baseline is `efd18f1`, published locally 
 2026-10-13 at 08:13. Brikk Kotlin support 0.3.0-SNAPSHOT resolves from Maven Local,
 using the 2026-10-13 06:24 publication. The ZIP embeds the runtime helpers,
 never test-support, so installation requires no Maven setup.
+
+### Opt-in external SQL scans
+
+```bash
+./gradlew --no-daemon --max-workers=2 test test262 test263 -Ptest.kotlin=absent \
+  -PrealSql.dir=/path/to/sql '-PrealSql.glob=*trino*.sql'
+```
+
+Both the directory and file glob are required; neither has a default. Only matching
+SQL files are read, never modified. An explicitly approved additional file can be
+included with `-PrealSql.extraFile=/path/to/one.sql`; it has no default. Every statement goes through registered Trino
+highlighting with a DDL-derived model and with no model, with PIPE off and on.
+There are no server connections; introspection is intercepted locally. Missing
+metadata reports are recorded separately from syntax and column findings.
+
+Raw statements, diagnostics, IDE logs/caches and scan test reports are confined to
+`build/realsql/`. Treat that directory as private scratch and delete it after
+triage. Only invented-name, neutral-literal replay tests belong in the repository;
+public reports should contain shapes and counts, not source text or names.
 
 ## Built-in PIPE queries
 
