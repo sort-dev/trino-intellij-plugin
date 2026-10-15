@@ -22,8 +22,7 @@
        (0.1.0 first-touch bug). CATALOG/SCHEMA are DELIBERATELY NOT in the URL — pick them in code
        (`USE cat.schema`) / the Schemas tab; keeping the connection to host+port only. -->
   <driver id="trino-brikk" name="Trino (sort.dev)" dialect="TrinoSQL"
-          forced-dbms="TRINO_BRIKK" driver-class="io.trino.jdbc.TrinoDriver"
-          icon="/icons/trino.svg">
+          forced-dbms="TRINO_BRIKK" driver-class="io.trino.jdbc.TrinoDriver">
     <url-template name="default"
       template="jdbc:trino://{host::localhost}?[:{port::8080}][\?&lt;&amp;,sessionUser={user:param},{:identifier}={:param}&gt;]"/>
     <!-- SSL: default port 8443 (Trino's HTTPS default). SSL is intentionally NOT baked into the URL
