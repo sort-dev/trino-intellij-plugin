@@ -120,7 +120,7 @@ public reports should contain shapes and counts, not source text or names.
 
 ## Built-in PIPE queries
 
-Enable **Settings > Tools > Trino PIPE** for the current project. No SQL Transpiler
+Enable **Settings > Tools > Database > Trino PIPE** for the current project. No SQL Transpiler
 installation is required. The workspace setting defaults off; `-Dtrino.pipes=false`
 is an emergency veto. Changing it reparses open SQL files.
 

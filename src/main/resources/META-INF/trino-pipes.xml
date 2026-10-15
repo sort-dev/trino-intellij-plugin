@@ -2,7 +2,7 @@
     <extensions defaultExtensionNs="com.intellij">
         <dynamicActionConfigurationCustomizer implementation="dev.sort.trino.pipes.TrinoPipesActionConfiguration"/>
         <actionPromoter implementation="dev.sort.trino.pipes.TrinoPipesActionPromoter" order="first"/>
-        <projectConfigurable id="dev.sort.trino.pipes" displayName="Trino PIPE" parentId="tools" nonDefaultProject="true" instance="dev.sort.trino.pipes.TrinoPipesConfigurable"/>
+        <projectConfigurable id="dev.sort.trino.pipes" displayName="Trino PIPE" parentId="database.main" nonDefaultProject="true" instance="dev.sort.trino.pipes.TrinoPipesConfigurable"/>
         <notificationGroup id="Trino PIPE" displayType="BALLOON"/>
         <intentionAction>
             <language>TrinoSQL</language><className>dev.sort.trino.pipes.PreviewPipeSqlIntention</className><category>Trino</category>
