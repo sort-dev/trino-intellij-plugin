@@ -21,7 +21,7 @@ object TrinoTextExplainProfile : TextExplainProfile {
 }
 
 @Service(Service.Level.PROJECT)
-open class TrinoTextExplainService(project: Project, scope: CoroutineScope) : TextExplainService(project, scope) {
+class TrinoTextExplainService(project: Project, scope: CoroutineScope) : TextExplainService(project, scope) {
     override val profile = TrinoTextExplainProfile
 }
 

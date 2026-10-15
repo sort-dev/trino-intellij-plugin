@@ -11,7 +11,8 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.brikk.house.sql.intellij.catalog.ExplainOutcome
 import dev.brikk.house.sql.intellij.testing.BackgroundErrors
 import dev.brikk.house.sql.intellij.testing.RecordingConsole
-import dev.sort.trino.catalog.TrinoTextExplainService
+import dev.brikk.house.sql.intellij.catalog.TextExplainService
+import dev.sort.trino.catalog.TrinoTextExplainProfile
 import kotlinx.coroutines.runBlocking
 import java.lang.reflect.Proxy
 import java.sql.Connection
@@ -23,7 +24,8 @@ class TrinoDefinitionsAndExplainTest : BasePlatformTestCase() {
     private val submitted = java.util.concurrent.CopyOnWriteArrayList<String>()
     private var opened = 0
 
-    private fun service(errors: BackgroundErrors) = object : TrinoTextExplainService(project, errors.newScope(testRootDisposable)) {
+    private fun service(errors: BackgroundErrors) = object : TextExplainService(project, errors.newScope(testRootDisposable)) {
+        override val profile = TrinoTextExplainProfile
         override suspend fun <T> withHelperConnection(console: com.intellij.database.console.JdbcConsole,
             use: suspend (DatabaseConnectionCore) -> T): T {
             opened++
