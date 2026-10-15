@@ -88,8 +88,8 @@ the same 261-compiled classes. The generated-shape test runs on `test262` with
 
 SQL core/metadata and verification 0.20.0-SNAPSHOT, plus SQL IntelliJ support and
 test-support 0.2.0-SNAPSHOT, resolve from Maven Local through the shared convention's
-snapshot-only filter. The frozen SQL/support Maven Local baseline for morning packaging is
-`a62ad24` (`a62ad24447a0994a724712d7574aefafa6d48ede`).
+snapshot-only filter. The frozen SQL/support Maven Local baseline for current packaging is
+`a39f073` (`a39f0739cb3955e6e8ebfb9d911b79b1626552e4`), published 2026-10-15 at 13:53 -06.
 Brikk Kotlin support 0.3.0-SNAPSHOT resolves from Maven Local.
 The ZIP embeds the runtime helpers,
 never test-support, so installation requires no Maven setup.
