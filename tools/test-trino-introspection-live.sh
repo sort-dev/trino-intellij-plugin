@@ -90,11 +90,19 @@ export TRINO_LIVE_URL="jdbc:trino://$address:8080?sessionUser=introspection"
 printf '%s\n' "$TRINO_LIVE_URL" > "$scratch/url.txt"
 echo "Running live IDE lane against $TRINO_LIVE_URL"
 if (( $# )); then tasks=("$@"); else tasks=(test test262 test263); fi
+if [[ ${TRINO_LIVE_CLEARED_ONLY:-0} == 1 ]]; then
+    filters=(--tests '*TrinoAutoIntrospectLiveTest.testClearedModelCompletionRestoresCatalogAndSchema')
+    lane_timeout=5m
+else
+    filters=(--tests '*TrinoAutoIntrospectLiveTest' --tests '*TrinoLiveCatalogLiveTest'
+        --tests '*TrinoJdbcMetadataTruthTest' --tests '*TrinoPgCatalogLandmineTest'
+        --tests '*TrinoConsoleTruthTest' --tests '*TrinoAuthMatrixTest')
+    lane_timeout=15m
+fi
 # No reusable daemon; timeout and EXIT traps remove the task engine even on test failures.
-timeout --signal=TERM --kill-after=30s 15m ./gradlew --no-daemon --max-workers=2 \
+timeout --signal=TERM --kill-after=30s "$lane_timeout" ./gradlew --no-daemon --max-workers=2 \
+    -Dorg.gradle.daemon.registry.base="$scratch/gradle-daemons" --refresh-dependencies \
     "${tasks[@]}" -Ptest.kotlin=absent \
-    --tests '*TrinoAutoIntrospectLiveTest' --tests '*TrinoLiveCatalogLiveTest' \
-    --tests '*TrinoJdbcMetadataTruthTest' --tests '*TrinoPgCatalogLandmineTest' \
-    --tests '*TrinoConsoleTruthTest' --tests '*TrinoAuthMatrixTest' \
+    "${filters[@]}" \
     --continue --console=plain > "$scratch/gradle.log" 2>&1
 echo "Live lane passed; reports are under $scratch and build/test-results."

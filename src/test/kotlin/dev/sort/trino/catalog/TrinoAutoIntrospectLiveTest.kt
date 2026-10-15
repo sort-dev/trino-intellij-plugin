@@ -357,6 +357,58 @@ class TrinoAutoIntrospectLiveTest : BasePlatformTestCase() {
         println("LIVE IDE: catalogs, one-level completion/reference loading, console USE, same-named tables, SHOW FUNCTIONS and schema DDL passed")
     }
 
+    fun testClearedModelCompletionRestoresCatalogAndSchema() {
+        if (liveUrl.isNullOrBlank()) { println("SKIP: trino.live.url not set"); return }
+        val ds = registerDataSource()
+        awaitSync({ LoaderContext.selectGeneralTask(project, ds) })
+        val file = myFixture.addFileToProject("live/cleared-console.sql", "SELECT 1")
+        setSqlDialectMapping(project, file.virtualFile, TrinoSqlDialect, testRootDisposable)
+        myFixture.configureFromExistingVirtualFile(file.virtualFile)
+        console = JdbcConsole.newConsole(project).forFile(file.virtualFile).fromDataSource(ds).build()
+        val settings = com.intellij.codeInsight.CodeInsightSettings.getInstance()
+        val autocomplete = settings.AUTOCOMPLETE_ON_CODE_COMPLETION
+        settings.AUTOCOMPLETE_ON_CODE_COMPLETION = false
+        Disposer.register(testRootDisposable) { settings.AUTOCOMPLETE_ON_CODE_COMPLETION = autocomplete }
+
+        // Load once before clearing, so the shared service must forget successful request states.
+        setSql("SELECT * FROM tpch.tiny.<caret>")
+        complete()
+        pollUntil("initial targeted load") { table(ds, "tpch", "tiny", "orders") != null && requests.pending(file.virtualFile) == null }
+        fun clearModel() {
+            ds.model = com.intellij.database.model.ModelFactory.BLACK_HOLE.createModel(dev.sort.trino.TrinoDbms.TRINO_BRIKK)
+            DbPsiFacade.getInstance(project).clearCaches()
+            assertTrue("model really cleared", dbModelRoots(ds).isEmpty())
+        }
+        clearModel()
+        for (sql in listOf("SELECT a.<caret> FROM (SELECT 1 AS k) a", "WITH c AS (SELECT 1 AS k) SELECT c.<caret> FROM c")) {
+            setSql(sql)
+            complete()
+            assertNull("alias/CTE must not request a namespace", requests.pending(file.virtualFile))
+            assertTrue("alias/CTE must not list roots", dbModelRoots(ds).isEmpty())
+        }
+        setSql("SELECT * FROM tpch.<caret>")
+        complete()
+        pollUntil("cleared catalog completion discovers roots and schemas") {
+            namespace(ds, "tpch", "tiny") != null && requests.pending(file.virtualFile) == null
+        }
+        assertTrue(complete().contains("tiny"))
+        // Clear Introspection Data retains the user's scope. The previously selected tiny
+        // schema may reload too; namespaces never selected must remain shallow.
+        assertTrue("unselected schema stays shallow", childrenOf(requireNotNull(namespace(ds, "tpch", "sf1"))).isEmpty())
+        assertTrue("neighbor catalog stays shallow", childrenOf(requireNotNull(rootNamed(ds, "memory"))).isEmpty())
+
+        clearModel()
+        setSql("SELECT * FROM tpch.tiny.<caret>")
+        complete()
+        pollUntil("cleared schema completion discovers roots, catalog and tables") {
+            table(ds, "tpch", "tiny", "orders") != null && requests.pending(file.virtualFile) == null
+        }
+        assertTrue(complete().containsAll(listOf("orders", "customer", "lineitem")))
+        assertTrue("neighbor schema stays shallow", childrenOf(requireNotNull(namespace(ds, "tpch", "sf1"))).isEmpty())
+        assertTrue("neighbor catalog stays shallow", childrenOf(requireNotNull(rootNamed(ds, "memory"))).isEmpty())
+        println("LIVE cleared model: catalog. and catalog.schema. completion rediscover roots and restore completion; unselected namespaces and aliases/CTEs stay quiet")
+    }
+
     private fun namespace(ds: LocalDataSource, catalog: String, schema: String) =
         rootNamed(ds, catalog)?.let(::childrenOf)?.firstOrNull { it.name == schema }
 
