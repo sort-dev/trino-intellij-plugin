@@ -1,5 +1,27 @@
+import java.io.File
+import java.security.MessageDigest
+import java.util.zip.ZipFile
+
 plugins {
     id("dev.sort.sql-dialect-plugin")
+}
+
+fun sha256(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256")
+    .digest(bytes).joinToString("") { "%02x".format(it) }
+
+// Check actual task inputs: refreshed SNAPSHOT coordinates alone do not prove freshness.
+val brikkRuntime = configurations.named("runtimeClasspath")
+val brikkTestRuntime = configurations.named("testRuntimeClasspath")
+fun brikkArtifacts(configuration: org.gradle.api.artifacts.Configuration) =
+    configuration.resolvedConfiguration.resolvedArtifacts.filter { it.moduleVersion.id.group == "dev.brikk.house" }
+
+fun localBrikkJar(artifact: org.gradle.api.artifacts.ResolvedArtifact): File {
+    val id = artifact.moduleVersion.id
+    val repository = System.getProperty("maven.repo.local")?.let(::file)
+        ?: File(System.getProperty("user.home"), ".m2/repository")
+    // Kotlin MPP metadata calls the cached file *-jvmMain; Maven publishes it as *-jvm.
+    return repository.resolve("${id.group.replace('.', '/')}/${id.name}/${id.version}/${id.name}-${id.version}.jar")
+        .also { check(it.isFile) { "Missing Maven Local reference: $it" } }
 }
 
 group = "dev.sort.trino"
@@ -44,6 +66,21 @@ tasks.processResources {
 }
 
 tasks.withType<Test>().configureEach {
+    if (providers.gradleProperty("test.pluginIsolation").orNull != "true") doFirst {
+        val rows = brikkArtifacts(brikkTestRuntime.get()).map { artifact ->
+            val local = localBrikkJar(artifact)
+            val expected = sha256(local.readBytes())
+            val inputs = classpath.files.filter { it.name == artifact.file.name }
+            check(inputs.isNotEmpty()) { "${artifact.file.name} missing from $name runtime" }
+            inputs.forEach { check(sha256(it.readBytes()) == expected) { "Stale $name runtime JAR: $it != $local" } }
+            "$expected  ${artifact.file.name}  runtime=$name  MavenLocal=$local"
+        }.sorted()
+        layout.buildDirectory.file("brikk-jar-hashes/$name.txt").get().asFile.apply {
+            parentFile.mkdirs()
+            writeText(rows.joinToString("\n", postfix = "\n"))
+        }
+        rows.forEach(logger::lifecycle)
+    }
     systemProperty("corpus.dir", layout.projectDirectory.dir("src/test/resources/corpus").asFile.absolutePath)
     val compiler = providers.gradleProperty("test.brikkCompilerPlugin").orNull
     if (name in setOf("test", "test262") && compiler != null) {
@@ -93,6 +130,37 @@ tasks.withType<Test>().configureEach {
         })
         outputs.upToDateWhen { false }
         outputs.cacheIf { false }
+    }
+}
+
+tasks.register("verifyBrikkJarHashes") {
+    group = "verification"
+    description = "Compares every bundled dev.brikk.house JAR byte-for-byte with Maven Local."
+    dependsOn("buildPlugin")
+    doLast {
+        val distribution = tasks.named<org.jetbrains.intellij.platform.gradle.tasks.BuildPluginTask>("buildPlugin")
+            .get().archiveFile.get().asFile
+        ZipFile(distribution).use { zip ->
+            val artifacts = brikkArtifacts(brikkRuntime.get())
+            val entries = zip.entries().asSequence().filter { it.name.endsWith(".jar") && it.name.substringAfterLast('/').startsWith("brikk-") }.toList()
+            check(entries.map { it.name.substringAfterLast('/') }.toSet() == artifacts.map { it.file.name }.toSet()) {
+                "Bundled Brikk JAR inventory differs from runtime artifacts"
+            }
+            val rows = artifacts.map { artifact ->
+                val local = localBrikkJar(artifact)
+                val expected = sha256(local.readBytes())
+                check(sha256(artifact.file.readBytes()) == expected) { "Stale resolved runtime JAR: ${artifact.file}" }
+                val entry = entries.single { it.name.substringAfterLast('/') == artifact.file.name }
+                check(sha256(zip.getInputStream(entry).use { it.readBytes() }) == expected) { "Stale ZIP JAR: ${entry.name}" }
+                "$expected  ${artifact.file.name}"
+            }.sorted()
+            layout.buildDirectory.file("brikk-jar-hashes/zip.txt").get().asFile.apply {
+                parentFile.mkdirs()
+                writeText(rows.joinToString("\n", postfix = "\n"))
+            }
+            logger.lifecycle("Maven Local / resolved runtime / ZIP SHA-256 match: $distribution")
+            rows.forEach(logger::lifecycle)
+        }
     }
 }
 

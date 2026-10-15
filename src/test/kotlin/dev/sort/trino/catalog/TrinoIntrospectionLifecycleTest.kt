@@ -215,6 +215,12 @@ class TrinoIntrospectionLifecycleTest : BasePlatformTestCase() {
             DbPsiFacade.getInstance(project).clearCaches()
             recording.console.setSearchPath(SearchPath.of(ObjectPath.create("tpch", ObjectKind.DATABASE)))
             assertFalse(requests.profile.usesCurrentNamespace)
+            // An unknown first name now lists the roots once before deciding it is unknown.
+            // That discovery must not reinterpret tiny as tpch.tiny from the console namespace.
+            assertTrue(requests.requestPath(myFixture.file, listOf("tiny")))
+            introspections.next().finish { }
+            awaitFinished()
+            assertTrue(catalog.schemas.createOrGet("tiny").tables.toList().isEmpty())
             assertFalse(requests.requestPath(myFixture.file, listOf("tiny")))
             introspections.assertNone()
             assertTrue(requests.requestPath(myFixture.file, listOf("tpch", "tiny")))

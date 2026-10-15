@@ -88,10 +88,15 @@ the same 261-compiled classes. The generated-shape test runs on `test262` with
 
 SQL core/metadata and verification 0.20.0-SNAPSHOT, plus SQL IntelliJ support and
 test-support 0.2.0-SNAPSHOT, resolve from Maven Local through the shared convention's
-snapshot-only filter. The reviewed SQL/support baseline is `cc62bfd`, published locally on
-2026-10-14 at 02:58. Brikk Kotlin support 0.3.0-SNAPSHOT resolves from Maven Local.
+snapshot-only filter. The reviewed SQL/support baseline is `00f661e`, published locally on
+2026-10-14 at 15:04. Brikk Kotlin support 0.3.0-SNAPSHOT resolves from Maven Local.
 The ZIP embeds the runtime helpers,
 never test-support, so installation requires no Maven setup.
+
+After a local snapshot publish, use `--refresh-dependencies` for tests
+and packaging. Every non-isolation test lane checks its actual Brikk runtime JARs against
+Maven Local by full SHA-256. Run `verifyBrikkJarHashes` with `buildPlugin` to check every
+bundled Brikk JAR too. Hash reports are under `build/brikk-jar-hashes/`.
 
 ### Opt-in external SQL scans
 
