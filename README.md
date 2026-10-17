@@ -104,15 +104,15 @@ Property key/value completion remains disabled.
 
 ### Release artifacts
 
-A push to `release-*` runs only `.github/workflows/release.yml`, which calls the shared
-artifact workflow pinned to `6e77690f0bea7aee30faf3808de3e27b4f7e44fa`. It builds with
-`-Prelease=true`, validates the ZIP filename, main JAR and plugin descriptor with
-`build-logic/tools/verify-release-zip.py`, then creates the tag and GitHub release with
-the unchanged ZIP. It never uploads to JetBrains Marketplace; the owner handles that
-handoff after verifying the release artifact.
+Commit release preparation to `main`, then create `release/<version>` from that commit.
+The shared workflow rejects a commit absent from main, builds with `-Prelease=true`, and runs API
+verification on IntelliJ 262 and 263. Only exact owner-confirmed internal usages in
+`api-usage-approvals.txt` are accepted; new call sites block the GitHub release. Full reports are retained.
+Compatible alone is not Marketplace approval. The owner handles Marketplace uploads. Version 0.4.1
+was withdrawn; its tag and local ZIPs are audit evidence, not release-ready artifacts.
 
 Normal CI keeps its main/froze-over, pull-request and manual triggers and existing tests.
-Its Plugin Verifier job runs only on manual dispatch, not on release-branch pushes.
+Its manual verifier remains available; release branches run their own strict API verification.
 
 ### Opt-in external SQL scans
 
