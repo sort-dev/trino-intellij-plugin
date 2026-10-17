@@ -40,6 +40,14 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>0.4.1</b>
+        <ul>
+            <li>Shared SQL completion, relation resolution and table-function typing, including cleared-model namespace discovery.</li>
+            <li>Restore the Trino icon in data-source pickers and hide empty PIPE editor menus.</li>
+            <li>Find project PIPE settings under Settings &gt; Tools &gt; Database &gt; Trino PIPE.</li>
+            <li>Fix EXPLAIN action registration and service startup.</li>
+            <li>Use released Brikk libraries. Property key/value completion remains disabled.</li>
+        </ul>
         <b>0.3.5</b>
         <ul>
             <li>Fresh dogfood build with a distinct installed version for the next local test pass.</li>

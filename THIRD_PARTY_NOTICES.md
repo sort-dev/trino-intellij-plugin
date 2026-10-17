@@ -2,10 +2,10 @@
 
 ## Embedded Brikk libraries
 
-The plugin bundles `dev.brikk.house:brikk-sql-jvm:0.20.0-SNAPSHOT` and matching
-`brikk-sql-metadata-jvm:0.20.0-SNAPSHOT`, `brikk-sql-verify-api:0.20.0-SNAPSHOT`,
-`brikk-sql-verify-trino:0.20.0-SNAPSHOT`, `brikk-sql-intellij-support:0.2.0-SNAPSHOT`, and
-`brikk-engine-kotlin-intellij-support:0.3.0-SNAPSHOT`, Copyright Brikk / Sortdev SRL,
+The plugin bundles `dev.brikk.house:brikk-sql-jvm:0.20.0` and matching
+`brikk-sql-metadata-jvm:0.20.0`, `brikk-sql-verify-api:0.20.0`,
+`brikk-sql-verify-trino:0.20.0`, `brikk-sql-intellij-support:0.2.0`, and
+`brikk-engine-kotlin-intellij-support:0.3.0`, Copyright Brikk / Sortdev SRL,
 under the Apache License 2.0. Exact versions are declared in build.gradle.kts
 and checked in the final distribution. The IntelliJ helpers include their notices.
 The SQL engine includes work derived from SQLGlot, Copyright Toby Mao and the

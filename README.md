@@ -72,8 +72,11 @@ playbook possible: the editor's error authority IS the engine's grammar, bundled
 
 ## Building from source
 
+The next release is **0.4.1**, which upgrades the delivered `0.4.0-dev` builds.
+
 ```bash
 ./gradlew buildPlugin   # → build/distributions/trino-intellij-plugin-<dev-version>.zip
+./gradlew buildPlugin -Prelease=true   # → build/distributions/trino-intellij-plugin-0.4.1.zip
 ./gradlew test          # boot + driver-facts + parser-authority (census scoreboard arrives with Stage 1)
 ```
 
@@ -86,18 +89,20 @@ the same 261-compiled classes. The generated-shape test runs on `test262` with
 `-Ptest.ide262=/path/to/IDEA-262.9437.185` and
 `-Ptest.brikkCompilerPlugin=/path/to/the/reviewed/compiler-plugin.jar`.
 
-SQL core/metadata and verification 0.20.0-SNAPSHOT, plus SQL IntelliJ support and
-test-support 0.2.0-SNAPSHOT, resolve from Maven Local through the shared convention's
-snapshot-only filter. The SQL/support Maven Local baseline is
-`74af818` (`74af818ed072d2a0fcfa8120e477867de0e2375d`).
-Brikk Kotlin support 0.3.0-SNAPSHOT resolves from Maven Local.
-The ZIP embeds the runtime helpers,
-never test-support, so installation requires no Maven setup.
+The shared catalog unconditionally selects released `dev.brikk.house` libraries from
+Maven Central: `brikk-sql-jvm`, `brikk-sql-metadata-jvm`, `brikk-sql-verify-api` and
+`brikk-sql-verify-trino` **0.20.0**; `brikk-sql-intellij-support` and test-only
+`brikk-sql-intellij-test-support` **0.2.0**; `brikk-engine-kotlin-intellij-support`
+**0.3.0**. There are no snapshot overrides or Maven Local substitutes. The ZIP embeds
+the runtime helpers, never test-support, so installation requires no Maven setup.
 
-After a local snapshot publish, use `--refresh-dependencies`. For snapshot delivery,
-run `./gradlew buildPlugin verifyBundledSnapshotHashes` to compare bundled Brikk
-snapshot JARs with Maven Local by full SHA-256. This shared conventions task is opt-in;
-ordinary tests, builds and release tasks do not require matching Maven Local artifacts.
+Release prerequisites: the owner must publish SQL/core/metadata/verification and
+support/test-support to Maven Central first, then the Kotlin helper. Formal compilation,
+tests and packaging require those publications. `-Prelease=true` uses the base version
+unchanged and makes `buildPlugin` run the shared `verifyRelease` dependency guard.
+Release CI validates the ZIP filename, main JAR and plugin descriptor with the shared
+`build-logic/tools/verify-release-zip.py` before uploading the same path without renaming it.
+Property key/value completion remains disabled.
 
 ### Opt-in external SQL scans
 
@@ -172,8 +177,8 @@ reported on the authored Kotlin; pending analysis withdraws stale classification
 
 Shared SQL/IDE mechanics live in `brikk-sql-intellij-support`. Kotlin recognition
 and contracts come from `brikk-engine-kotlin-intellij-support`. See
-[the verification report](REVIEW-trino-pipes-brikk.md) for the
-current dependency/release state and verification commands.
+[the historical verification report](REVIEW-trino-pipes-brikk.md) for earlier
+integration checks.
 
 ## Credits
 

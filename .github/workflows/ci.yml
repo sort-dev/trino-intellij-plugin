@@ -30,7 +30,7 @@ jobs:
         run: ./gradlew test262 test263 -Ptest.kotlin=present
 
       - name: Build plugin
-        run: ./gradlew buildPlugin verifyDistribution
+        run: ./gradlew buildPlugin verifyDistribution -Prelease=${{ github.event_name == 'push' && startsWith(github.ref_name, 'release-') }}
 
       - name: Upload plugin zip
         uses: actions/upload-artifact@v4
@@ -106,13 +106,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           V: ${{ steps.ver.outputs.version }}
         run: |
-          ZIP=$(ls dist/*.zip | head -1)
-          RENAMED="dist/trino-intellij-plugin-${V}.zip"
-          mv "$ZIP" "$RENAMED"
+          ZIP=$(python3 build-logic/tools/verify-release-zip.py dist dev.sort.trino-intellij-plugin "$V")
           if gh release view "v$V" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "v$V" "$RENAMED" --clobber --repo "$GITHUB_REPOSITORY"
+            gh release upload "v$V" "$ZIP" --clobber --repo "$GITHUB_REPOSITORY"
           else
-            gh release create "v$V" "$RENAMED" \
+            gh release create "v$V" "$ZIP" \
               --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
               --title "SQL Dialect for Trino $V" \
