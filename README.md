@@ -100,9 +100,19 @@ Release prerequisites: the owner must publish SQL/core/metadata/verification and
 support/test-support to Maven Central first, then the Kotlin helper. Formal compilation,
 tests and packaging require those publications. `-Prelease=true` uses the base version
 unchanged and makes `buildPlugin` run the shared `verifyRelease` dependency guard.
-Release CI validates the ZIP filename, main JAR and plugin descriptor with the shared
-`build-logic/tools/verify-release-zip.py` before uploading the same path without renaming it.
 Property key/value completion remains disabled.
+
+### Release artifacts
+
+A push to `release-*` runs only `.github/workflows/release.yml`, which calls the shared
+artifact workflow pinned to `6e77690f0bea7aee30faf3808de3e27b4f7e44fa`. It builds with
+`-Prelease=true`, validates the ZIP filename, main JAR and plugin descriptor with
+`build-logic/tools/verify-release-zip.py`, then creates the tag and GitHub release with
+the unchanged ZIP. It never uploads to JetBrains Marketplace; the owner handles that
+handoff after verifying the release artifact.
+
+Normal CI keeps its main/froze-over, pull-request and manual triggers and existing tests.
+Its Plugin Verifier job runs only on manual dispatch, not on release-branch pushes.
 
 ### Opt-in external SQL scans
 
