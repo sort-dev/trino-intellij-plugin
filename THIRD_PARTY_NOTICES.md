@@ -2,9 +2,10 @@
 
 ## Embedded Brikk libraries
 
-The plugin bundles `dev.brikk.house:brikk-sql-jvm:0.19.1` and matching
-`brikk-sql-metadata-jvm:0.19.1`, `brikk-sql-intellij-support:0.1.1`, and
-`brikk-engine-kotlin-intellij-support:0.2.0`, Copyright Brikk / Sortdev SRL,
+The plugin bundles `dev.brikk.house:brikk-sql-jvm:0.20.0` and matching
+`brikk-sql-metadata-jvm:0.20.0`, `brikk-sql-verify-api:0.20.0`,
+`brikk-sql-verify-trino:0.20.0`, `brikk-sql-intellij-support:0.2.0`, and
+`brikk-engine-kotlin-intellij-support:0.3.0`, Copyright Brikk / Sortdev SRL,
 under the Apache License 2.0. Exact versions are declared in build.gradle.kts
 and checked in the final distribution. The IntelliJ helpers include their notices.
 The SQL engine includes work derived from SQLGlot, Copyright Toby Mao and the
@@ -64,6 +65,45 @@ Apache License, Version 2.0 — <https://www.apache.org/licenses/LICENSE-2.0>.
 "Trino" is a trademark of the Trino Software Foundation. This plugin is an independent
 community project by Sortdev SRL, not affiliated with or endorsed by the Trino Software
 Foundation; the name is used only to identify the query engine this plugin supports.
+
+## ANTLR runtime
+
+The plugin bundles `org.antlr:antlr4-runtime:4.13.2`, under the BSD-3-Clause license:
+
+Copyright (c) 2012-2022 The ANTLR Project. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+1. Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+
+3. Neither name of copyright holders nor the names of its contributors
+may be used to endorse or promote products derived from this software
+without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE REGENTS OR
+CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+## Guava
+
+The plugin bundles `com.google.guava:guava:33.5.0-jre` and its `failureaccess`
+and empty `listenablefuture` compatibility artifacts, Copyright Google LLC,
+under the Apache License 2.0, included in `META-INF/LICENSE`.
 
 ## StarRocks Support (parsing technique lineage)
 

@@ -9,377 +9,114 @@
 package dev.sort.trino.sql
 
 import com.intellij.lang.PsiBuilder
-import com.intellij.sql.dialects.postgres.PgParser
-import com.intellij.sql.psi.SqlCompositeElementTypes.SQL_STATEMENT
 import com.intellij.psi.impl.source.resolve.FileContextUtil
-import dev.sort.trino.pipes.TrinoPipes
+import com.intellij.sql.dialects.postgres.PgParser
+import dev.brikk.house.sql.intellij.parser.containsAny
+import dev.brikk.house.sql.intellij.parser.firstOf
+import dev.brikk.house.sql.intellij.parser.parseColonParameter
+import dev.brikk.house.sql.intellij.parser.parseLenientStatement
+import dev.brikk.house.sql.intellij.parser.scanStatement
+import dev.brikk.house.sql.intellij.parser.wordAt
+import dev.brikk.house.sql.intellij.parser.wordThenToken
+import dev.brikk.house.sql.intellij.parser.wordThenWord
+import dev.brikk.house.sql.intellij.pipe.PipeStatementGate
 import dev.sort.trino.brikk.BrikkTrinoProfile
+import dev.sort.trino.brikk.TrinoHostSql
+import dev.sort.trino.pipes.TrinoPipeDialect
 
-/**
- * Trino statement parsing on the PG foundation, Tier-1 (statement boundaries).
- *
- * When a statement leads with Trino-only syntax the PG grammar cannot represent, consume tokens
- * to the next `;` and wrap them in ONE SQL_STATEMENT node — statement-at-caret / run-block
- * boundaries stay correct everywhere; inner structure arrives with later stages, and REAL errors
- * come from the bundled trino-parser validator (the engine's own grammar). Everything else falls
- * through to super for full PG structure + completion.
- *
- * Dispatch decisions are bounded look-aheads (≤ [MAX_LOOKAHEAD] tokens, always rolled back), and
- * every gate is census-derived (TrinoCensusScoreboardTest) under the standing rule: gates must
- * NEVER steal statements the PG base parses fine (the doris COPY-exemption lesson) — so heads
- * that PG shares (SET/CREATE/ALTER/EXPLAIN/PREPARE/EXECUTE/ANALYZE/INSERT/WITH/VALUES) only go
- * lenient when a Trino-only marker is visible. NOTE: [TrinoLexer] masks/collapses run FIRST —
- * markers the lexer masked (time travel, `@branch`, routine bodies) are invisible here, which is
- * exactly what lets the masked statements keep their structured PG parse.
- *
- * Always-lenient heads: USE, SHOW, DESCRIBE/DESC (Trino families, PG's are different things),
- * DENY (PG has none), GRANT/REVOKE (Trino's principal/branch/role grammar diverges from PG at
- * several points — privilege sets, TO USER/ROLE grantees, ON BRANCH/SCHEMA targets, catalog
- * roles — a structured PG parse would be wrong-shaped even when it happens to succeed).
- */
 class TrinoPsiParser : PgParser(false) {
-    private var pipeText: CharSequence? = null
-    private var pipeChunks: List<TrinoPipes.Chunk> = emptyList()
+    private val pipeGate = PipeStatementGate(TrinoPipeDialect)
 
     override fun parseSqlStatement(builder: PsiBuilder, level: Int): Boolean {
         val file = builder.getUserData(FileContextUtil.CONTAINING_FILE_KEY)
-        if (file?.let { TrinoPipes.isEnabled(it) } ?: TrinoPipes.isEnabled(builder.project)) {
-            if (pipeText !== builder.originalText) {
-                pipeText = builder.originalText
-                pipeChunks = TrinoPipes.chunks(builder.originalText.toString())
-            }
-            val chunk = pipeChunks.firstOrNull { builder.currentOffset >= it.startOffset && builder.currentOffset < it.endOffset }
-            if (chunk?.hasPipeOperator == true || BrikkTrinoProfile.forFile(file) != null && wordAt(builder, 0) == "FROM") {
-                val marker = builder.mark()
-                val end = chunk?.endOffset ?: builder.originalText.length
-                while (!builder.eof() && builder.currentOffset < end &&
-                    !(chunk?.boundaryError == null && builder.tokenText == ";" && builder.currentOffset == end - 1)) {
-                    if (!com.intellij.sql.dialects.base.SqlGeneratedParserUtil.parseUserParameter(builder, false, true)) builder.advanceLexer()
-                }
-                marker.done(SQL_STATEMENT)
-                return true
-            }
-        }
-        when (wordAt(builder, 0)) {
+        val head = builder.wordAt(0)
+        if (pipeGate.parse(builder, BrikkTrinoProfile.forFile(file) != null && head == "FROM")) return true
+        val next = builder.wordAt(1)
+        // Trino-only heads are lenient; shared heads require a Trino-only clause or bare VALUES.
+        // Never steal PG-parseable forms: view markers must precede AS, and routine RETURN stays structured.
+        when (head) {
             "USE", "SHOW", "DESCRIBE", "DESC", "DENY", "GRANT", "REVOKE",
-            -> return parseLenientStatement(builder)
+            -> return builder.parseLenientStatement()
 
-            "DEALLOCATE" -> if (wordAt(builder, 1) == "PREPARE") {
-                return parseLenientStatement(builder)
+            "DEALLOCATE" -> if (next == "PREPARE") return builder.parseLenientStatement()
+            "SET" -> when (next) {
+                "SESSION", "PATH", "TIME" -> return builder.parseLenientStatement()
             }
-
-            // SET SESSION cat.prop = v / SET PATH / SET TIME ZONE <expr> all break PG's tiny SET.
-            "SET" -> when (wordAt(builder, 1)) {
-                "SESSION", "PATH", "TIME" -> return parseLenientStatement(builder)
+            "RESET" -> if (next == "SESSION") return builder.parseLenientStatement()
+            "PREPARE" -> if (builder.firstOf("FROM", "AS") == "FROM") return builder.parseLenientStatement()
+            "EXECUTE" -> if (next == "IMMEDIATE" || builder.containsAny("USING")) {
+                return builder.parseLenientStatement()
             }
-
-            "RESET" -> if (wordAt(builder, 1) == "SESSION") {
-                return parseLenientStatement(builder)
-            }
-
-            // PREPARE name FROM statement — PG's PREPARE uses AS; FROM-first decides.
-            "PREPARE" -> if (statementFirstOf(builder, "FROM", "AS") == "FROM") {
-                return parseLenientStatement(builder)
-            }
-
-            // EXECUTE IMMEDIATE 'sql' / EXECUTE name USING a, b — PG only knows EXECUTE name(args).
-            "EXECUTE" -> if (wordAt(builder, 1) == "IMMEDIATE" || statementContainsAny(builder, "USING")) {
-                return parseLenientStatement(builder)
-            }
-
-            // ANALYZE table WITH (props) — PG's ANALYZE has no WITH clause.
-            "ANALYZE" -> if (statementContainsAny(builder, "WITH")) {
-                return parseLenientStatement(builder)
-            }
-
-            // EXPLAIN (TYPE ...) is Trino-only; EXPLAIN [ANALYZE] of a lenient-head statement
-            // must go lenient with it. PG-shaped EXPLAIN (FORMAT/ANALYZE/VERBOSE + query) stays.
+            "ANALYZE" -> if (builder.containsAny("WITH")) return builder.parseLenientStatement()
             "EXPLAIN" -> {
-                val w1 = wordAt(builder, 1)
-                if (w1 == "TYPE") return parseLenientStatement(builder)
-                // EXPLAIN ANALYZE <query> is PG-valid and stays with super — only EXPLAIN
-                // [ANALYZE] of a Trino-lenient head goes lenient with its subject.
-                val subject = if (w1 == "ANALYZE") wordAt(builder, 2) else w1
-                if (subject in LENIENT_UNDER_EXPLAIN) return parseLenientStatement(builder)
+                if (next == "TYPE") return builder.parseLenientStatement()
+                val subject = if (next == "ANALYZE") builder.wordAt(2) else next
+                if (subject in LENIENT_UNDER_EXPLAIN) return builder.parseLenientStatement()
             }
-
-            // WITH FUNCTION f() ... — inline SQL UDFs ahead of the query body (routine bodies are
-            // collapsed by TrinoLexer, so consume-to-';' holds the boundary). WITH + bare scalar
-            // VALUES rows in a CTE body is equally un-PG.
             "WITH" -> {
-                if (wordAt(builder, 1) == "FUNCTION") return parseLenientStatement(builder)
-                if (statementHasBareValuesRow(builder)) return parseLenientStatement(builder)
+                if (next == "FUNCTION" || builder.hasBareValuesRow()) return builder.parseLenientStatement()
             }
-
-            // VALUES 1, 2 — Trino allows bare scalar rows as a full query; PG demands parens.
-            "VALUES" -> if (statementHasBareValuesRow(builder)) {
-                return parseLenientStatement(builder)
-            }
-
-            // INSERT INTO t VALUES 1, 2 — same bare-scalar-rows divergence.
-            "INSERT" -> if (statementHasBareValuesRow(builder)) {
-                return parseLenientStatement(builder)
-            }
-
+            "VALUES", "INSERT" -> if (builder.hasBareValuesRow()) return builder.parseLenientStatement()
             "CREATE" -> {
-                if (wordAt(builder, 1) == "CATALOG" || wordAt(builder, 1) == "BRANCH") {
-                    return parseLenientStatement(builder)
+                if (next in CATALOG_HEADS) return builder.parseLenientStatement()
+                if (next == "OR" && builder.wordAt(2) == "REPLACE" &&
+                    builder.wordAt(3) in REPLACE_TABLE_HEADS) return builder.parseLenientStatement()
+                if (next in VIEW_HEADS &&
+                    builder.containsAnyBefore("AS", "COMMENT", "GRACE", "WHEN", "SECURITY")) {
+                    return builder.parseLenientStatement()
                 }
-                // CREATE OR REPLACE TABLE/MATERIALIZED VIEW — PG has no OR REPLACE for either.
-                if (wordAt(builder, 1) == "OR" && wordAt(builder, 2) == "REPLACE" &&
-                    wordAt(builder, 3) in setOf("TABLE", "MATERIALIZED")
-                ) {
-                    return parseLenientStatement(builder)
+                if (next == "SCHEMA" && builder.containsAny("WITH")) return builder.parseLenientStatement()
+                if (builder.wordThenWord("INCLUDING", "PROPERTIES")) return builder.parseLenientStatement()
+                if (builder.wordThenToken("AS", "(")) return builder.parseLenientStatement()
+                if (builder.wordThenWord("AS", "WITH") && builder.hasBareValuesRow()) return builder.parseLenientStatement()
+                if (next == "FUNCTION" ||
+                    next == "OR" && builder.wordAt(2) == "REPLACE" && builder.wordAt(3) == "FUNCTION") {
+                    if (builder.containsAny("LANGUAGE", "DETERMINISTIC", "SECURITY", "CALLED") ||
+                        !builder.containsAny("RETURN", "AS")) return builder.parseLenientStatement()
                 }
-                // Trino header clauses between the name and AS: COMMENT '...', GRACE PERIOD,
-                // WHEN STALE ..., SECURITY DEFINER/INVOKER — none exist in PG's CREATE [MAT.] VIEW.
-                if ((wordAt(builder, 1) == "VIEW" || wordAt(builder, 1) == "MATERIALIZED") &&
-                    statementContainsAnyBefore(builder, "AS", "COMMENT", "GRACE", "WHEN", "SECURITY")
-                ) {
-                    return parseLenientStatement(builder)
-                }
-                // CREATE SCHEMA ... WITH (props) / AUTHORIZATION principal-with-props.
-                if (wordAt(builder, 1) == "SCHEMA" && statementContainsAny(builder, "WITH")) {
-                    return parseLenientStatement(builder)
-                }
-                // CREATE TABLE (LIKE t INCLUDING PROPERTIES) — PROPERTIES is not a PG INCLUDING kind.
-                if (statementContainsWordThen(builder, "INCLUDING", "PROPERTIES")) {
-                    return parseLenientStatement(builder)
-                }
-                // Parenthesized CTAS body / CTAS whose CTE carries bare scalar VALUES rows.
-                if (statementContainsWordThenToken(builder, "AS", "(")) {
-                    return parseLenientStatement(builder)
-                }
-                if (statementContainsWordThen(builder, "AS", "WITH") && statementHasBareValuesRow(builder)) {
-                    return parseLenientStatement(builder)
-                }
-                // SQL/Python routines: LANGUAGE/DETERMINISTIC/SECURITY/CALLED characteristics are
-                // Trino-only; a body-less remainder (BEGIN body collapsed by TrinoLexer, so no
-                // visible RETURN/AS) means a routine too. CREATE FUNCTION ... RETURN 42 stays
-                // with super — the PG grammar parses that form fine.
-                if (wordAt(builder, 1) == "FUNCTION" ||
-                    (wordAt(builder, 1) == "OR" && wordAt(builder, 2) == "REPLACE" && wordAt(builder, 3) == "FUNCTION")
-                ) {
-                    if (statementContainsAny(builder, "LANGUAGE", "DETERMINISTIC", "SECURITY", "CALLED") ||
-                        !statementContainsAny(builder, "RETURN", "AS")
-                    ) {
-                        return parseLenientStatement(builder)
-                    }
-                }
-                // CREATE ROLE r WITH ADMIN USER|ROLE p / CREATE ROLE r IN catalog — PG's role
-                // options know neither the USER/ROLE grantor forms nor catalogs.
-                if (wordAt(builder, 1) == "ROLE") {
-                    if (statementContainsWordThen(builder, "ADMIN", "USER") ||
-                        statementContainsWordThen(builder, "ADMIN", "ROLE") ||
-                        (wordAt(builder, 3) == "IN" && wordAt(builder, 4) !in setOf("ROLE", "GROUP"))
-                    ) {
-                        return parseLenientStatement(builder)
-                    }
+                if (next == "ROLE" &&
+                    (builder.wordThenWord("ADMIN", "USER") || builder.wordThenWord("ADMIN", "ROLE") ||
+                        builder.wordAt(3) == "IN" && builder.wordAt(4) !in PG_ROLE_MEMBERSHIPS)) {
+                    return builder.parseLenientStatement()
                 }
             }
-
-            "DROP" -> if (wordAt(builder, 1) == "CATALOG" || wordAt(builder, 1) == "BRANCH") {
-                return parseLenientStatement(builder)
-            }
-
+            "DROP" -> if (next in CATALOG_HEADS) return builder.parseLenientStatement()
             "ALTER" -> {
-                if (wordAt(builder, 1) == "BRANCH") return parseLenientStatement(builder)
-                // ALTER ... SET AUTHORIZATION / SET PROPERTIES — Trino-only instructions.
-                if (statementContainsWordThen(builder, "SET", "AUTHORIZATION") ||
-                    statementContainsWordThen(builder, "SET", "PROPERTIES")
-                ) {
-                    return parseLenientStatement(builder)
+                if (next == "BRANCH") return builder.parseLenientStatement()
+                if (builder.wordThenWord("SET", "AUTHORIZATION") || builder.wordThenWord("SET", "PROPERTIES")) {
+                    return builder.parseLenientStatement()
                 }
-                // ALTER TABLE t EXECUTE procedure(...) — table procedures.
-                if (wordAt(builder, 1) == "TABLE" && statementContainsAny(builder, "EXECUTE")) {
-                    return parseLenientStatement(builder)
-                }
-                // ALTER VIEW v REFRESH.
-                if (wordAt(builder, 1) == "VIEW" && statementContainsAny(builder, "REFRESH")) {
-                    return parseLenientStatement(builder)
-                }
-                // RENAME/DROP COLUMN IF EXISTS — PG puts IF EXISTS on the table, not the column.
-                if (statementContainsWordThen(builder, "COLUMN", "IF")) {
-                    return parseLenientStatement(builder)
-                }
+                if (next == "TABLE" && builder.containsAny("EXECUTE")) return builder.parseLenientStatement()
+                if (next == "VIEW" && builder.containsAny("REFRESH")) return builder.parseLenientStatement()
+                if (builder.wordThenWord("COLUMN", "IF")) return builder.parseLenientStatement()
             }
         }
         return super.parseSqlStatement(builder, level)
     }
 
-    // --- lenient machinery (StarRocks -> doris -> duckdb lineage) ---
-
     override fun parseParameterOrVariableReference(builder: PsiBuilder, allowVariable: Boolean): Boolean {
         val file = builder.getUserData(FileContextUtil.CONTAINING_FILE_KEY)
-        if (BrikkTrinoProfile.forFile(file) != null && builder.tokenText == ":") {
-            val marker = builder.mark()
-            val start = builder.currentOffset
-            builder.advanceLexer()
-            if (builder.currentOffset == start + 1 && builder.tokenText?.matches(Regex("[A-Za-z_][A-Za-z_0-9]*")) == true) {
-                builder.advanceLexer()
-                marker.done(com.intellij.sql.psi.SqlElementTypes.SQL_PARAMETER_REFERENCE)
-                return true
-            }
-            marker.rollbackTo()
-        }
+        if (TrinoHostSql.parsesColonBinds(file) && builder.parseColonParameter()) return true
         return super.parseParameterOrVariableReference(builder, allowVariable)
     }
 
-    private fun parseLenientStatement(builder: PsiBuilder): Boolean {
-        val marker = builder.mark()
-        while (!builder.eof() && builder.tokenText != ";") {
-            if (!com.intellij.sql.dialects.base.SqlGeneratedParserUtil.parseUserParameter(builder, false, true)) builder.advanceLexer()
-        }
-        marker.done(SQL_STATEMENT)
-        return true
-    }
-
-    /** The uppercased Nth letter-leading token from the current position, or null. Non-consuming. */
-    private fun wordAt(builder: PsiBuilder, offset: Int): String? {
-        val marker = builder.mark()
-        var current = 0
-        var result: String? = null
-        while (!builder.eof() && builder.tokenText != ";" && current <= offset) {
-            val text = builder.tokenText
-            if (text != null && text.firstOrNull()?.isLetter() == true) {
-                if (current == offset) {
-                    result = text.uppercase()
-                    break
-                }
-                current++
+    private fun PsiBuilder.containsAnyBefore(stop: String, vararg words: String): Boolean =
+        scanStatement { _, text ->
+            when (text.uppercase()) {
+                stop -> false
+                in words -> true
+                else -> null
             }
-            builder.advanceLexer()
-        }
-        marker.rollbackTo()
-        return result
-    }
+        } == true
 
-    /** True if any token before the next ';' matches any of [words] within the window. Non-consuming. */
-    private fun statementContainsAny(builder: PsiBuilder, vararg words: String): Boolean {
-        val expected = words.toHashSet()
-        val marker = builder.mark()
-        var scanned = 0
-        var found = false
-        while (!builder.eof() && builder.tokenText != ";" && scanned < MAX_LOOKAHEAD) {
-            val text = builder.tokenText
-            if (text != null && expected.contains(text.uppercase())) {
-                found = true
-                break
-            }
-            builder.advanceLexer()
-            scanned++
-        }
-        marker.rollbackTo()
-        return found
-    }
-
-    /** True if any of [words] appears BEFORE the first [stop] word (both before ';'). Non-consuming. */
-    private fun statementContainsAnyBefore(builder: PsiBuilder, stop: String, vararg words: String): Boolean {
-        val expected = words.toHashSet()
-        val marker = builder.mark()
-        var scanned = 0
-        var found = false
-        while (!builder.eof() && builder.tokenText != ";" && scanned < MAX_LOOKAHEAD) {
-            val text = builder.tokenText?.uppercase()
-            if (text == stop) break
-            if (text != null && text in expected) {
-                found = true
-                break
-            }
-            builder.advanceLexer()
-            scanned++
-        }
-        marker.rollbackTo()
-        return found
-    }
-
-    /** The FIRST of [words] to appear before the next ';' (uppercased), or null. Non-consuming. */
-    private fun statementFirstOf(builder: PsiBuilder, vararg words: String): String? {
-        val expected = words.toHashSet()
-        val marker = builder.mark()
-        var scanned = 0
-        var found: String? = null
-        while (!builder.eof() && builder.tokenText != ";" && scanned < MAX_LOOKAHEAD) {
-            val text = builder.tokenText?.uppercase()
-            if (text != null && text in expected) {
-                found = text
-                break
-            }
-            builder.advanceLexer()
-            scanned++
-        }
-        marker.rollbackTo()
-        return found
-    }
-
-    /** True if [word] appears with [next] as the following letter-word, within the window. Non-consuming. */
-    private fun statementContainsWordThen(builder: PsiBuilder, word: String, next: String): Boolean {
-        val marker = builder.mark()
-        var scanned = 0
-        var found = false
-        var prevWasWord = false
-        while (!builder.eof() && builder.tokenText != ";" && scanned < MAX_LOOKAHEAD) {
-            val text = builder.tokenText
-            if (text != null && text.firstOrNull()?.isLetter() == true) {
-                if (prevWasWord && text.equals(next, ignoreCase = true)) { found = true; break }
-                prevWasWord = text.equals(word, ignoreCase = true)
-            } else if (!text.isNullOrBlank()) {
-                prevWasWord = false
-            }
-            builder.advanceLexer()
-            scanned++
-        }
-        marker.rollbackTo()
-        return found
-    }
-
-    /** True if [word] appears with the exact token [next] following it. Non-consuming. */
-    private fun statementContainsWordThenToken(builder: PsiBuilder, word: String, next: String): Boolean {
-        val marker = builder.mark()
-        var scanned = 0
-        var found = false
-        var prevWasWord = false
-        while (!builder.eof() && builder.tokenText != ";" && scanned < MAX_LOOKAHEAD) {
-            val text = builder.tokenText
-            if (!text.isNullOrBlank()) {
-                if (prevWasWord && text == next) { found = true; break }
-                prevWasWord = text.equals(word, ignoreCase = true)
-            }
-            builder.advanceLexer()
-            scanned++
-        }
-        marker.rollbackTo()
-        return found
-    }
-
-    /**
-     * True if a visible `VALUES` is followed by anything but `(` — Trino's bare scalar rows,
-     * which PG cannot parse in any position. VALUES groups the lexer already collapsed to one
-     * ident (FROM/JOIN positions) are invisible here by design. Non-consuming.
-     */
-    private fun statementHasBareValuesRow(builder: PsiBuilder): Boolean {
-        val marker = builder.mark()
-        var scanned = 0
-        var found = false
-        var prevWasValues = false
-        while (!builder.eof() && builder.tokenText != ";" && scanned < MAX_LOOKAHEAD) {
-            val text = builder.tokenText
-            if (!text.isNullOrBlank()) {
-                if (prevWasValues && text != "(") { found = true; break }
-                prevWasValues = text.equals("VALUES", ignoreCase = true)
-            }
-            builder.advanceLexer()
-            scanned++
-        }
-        marker.rollbackTo()
-        return found
-    }
+    private fun PsiBuilder.hasBareValuesRow(): Boolean =
+        scanStatement { previous, text -> true.takeIf { previous.equals("VALUES", true) && text != "(" } } == true
 
     private companion object {
-        private const val MAX_LOOKAHEAD = 512
-
-        /** Trino-only heads that keep EXPLAIN [ANALYZE] out of PG's EXPLAIN grammar. */
-        private val LENIENT_UNDER_EXPLAIN =
-            setOf("ANALYZE", "SHOW", "DESC", "DESCRIBE", "USE", "DENY", "GRANT", "REVOKE")
+        val CATALOG_HEADS = setOf("CATALOG", "BRANCH")
+        val REPLACE_TABLE_HEADS = setOf("TABLE", "MATERIALIZED")
+        val VIEW_HEADS = setOf("VIEW", "MATERIALIZED")
+        val PG_ROLE_MEMBERSHIPS = setOf("ROLE", "GROUP")
+        val LENIENT_UNDER_EXPLAIN = setOf("ANALYZE", "SHOW", "DESC", "DESCRIBE", "USE", "DENY", "GRANT", "REVOKE")
     }
 }

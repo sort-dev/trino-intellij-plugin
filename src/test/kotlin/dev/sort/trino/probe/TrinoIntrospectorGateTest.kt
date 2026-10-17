@@ -12,7 +12,7 @@ import dev.sort.trino.TrinoDbms
  * (server reports major 483, and Trino has no pg_catalog) is pinned by [TrinoPgCatalogLandmineTest].
  * Together they prove the landmine from both ends. Reflection is used throughout because the PG
  * introspector factory + the selection entry point are Kotlin-`internal` in metadata (public in
- * bytecode) — the same reason [dev.sort.trino.PgModelAccess] exists as a Java shim.
+ * bytecode).
  *
  * THE MECHANISM (disassembled from DatabaseTools 2026.1.3, re-proven here as live assertions):
  *   - `DBIntrospectorFactory.supportedByNativeIntrospector(dbms, version)`

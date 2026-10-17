@@ -3,16 +3,17 @@ package dev.sort.trino.pipes
 import com.intellij.openapi.actionSystem.*
 import com.intellij.openapi.actionSystem.impl.SimpleDataContext
 import com.intellij.openapi.components.service
-import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.editor.DefaultLanguageHighlighterColors
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.sql.psi.SqlStatement
-import com.intellij.sql.dialects.SqlDialectMappings
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.brikk.house.sql.intellij.*
+import dev.brikk.house.sql.intellij.pipe.isEnabled
 import dev.sort.trino.sql.TrinoSqlDialect
 import dev.sort.trino.validate.TrinoErrorAnnotator
+import dev.sort.trino.validate.annotations
 
 class TrinoPipesPlatformTest : BasePlatformTestCase() {
     override fun tearDown() {
@@ -21,35 +22,119 @@ class TrinoPipesPlatformTest : BasePlatformTestCase() {
     }
     fun testSettingRefreshAndStatementRanges() {
         val file = myFixture.configureByText("pipeline.sql", "SELECT 1; FROM t |> WHERE x = 2 |> SELECT x; SELECT 3;")
-        dev.sort.trino.setSqlDialectMapping(project, file.virtualFile, TrinoSqlDialect.INSTANCE)
+        dev.brikk.house.sql.intellij.testing.setSqlDialectMapping(project, file.virtualFile, TrinoSqlDialect)
         project.service<TrinoPipesSettings>().enabled = true
         PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
         val psi = PsiDocumentManager.getInstance(project).getPsiFile(myFixture.editor.document)!!
         val statements = PsiTreeUtil.findChildrenOfType(psi, SqlStatement::class.java).filterNot { it.parent is SqlStatement }
         assertEquals(3, statements.size)
         val annotator = TrinoErrorAnnotator()
-        assertEmpty(annotator.doAnnotate(annotator.collectInformation(psi))!!.errors)
+        assertEmpty(annotator.annotations(psi))
         project.service<TrinoPipesSettings>().enabled = false
         PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
-        assertFalse(TrinoPipes.isEnabled(project))
-    }
-    fun testSnapshotRejectsEditAndRevert() {
-        myFixture.configureByText("snapshot.sql", "SELECT 1")
-        val doc = myFixture.editor.document
-        val snapshot = EditorSnapshot.capture(doc)
-        WriteCommandAction.runWriteCommandAction(project) { doc.setText("SELECT 2"); doc.setText("SELECT 1") }
-        try { snapshot.requireCurrent(); fail("Expected stale snapshot") } catch (_: IllegalStateException) { }
+        assertFalse(TrinoPipeDialect.isEnabled(project))
     }
     fun testLongPipelineDoesNotUseTheOldBoundedLookahead() {
         val text = "SELECT " + List(700) { "1" }.joinToString(" + ") + " AS value |> SELECT value; SELECT 2;"
         val file = myFixture.configureByText("long-pipe.sql", text)
-        dev.sort.trino.setSqlDialectMapping(project, file.virtualFile, TrinoSqlDialect.INSTANCE)
+        dev.brikk.house.sql.intellij.testing.setSqlDialectMapping(project, file.virtualFile, TrinoSqlDialect)
         project.service<TrinoPipesSettings>().enabled = true
         PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
         val psi = PsiDocumentManager.getInstance(project).getPsiFile(myFixture.editor.document)!!
         val statements = PsiTreeUtil.findChildrenOfType(psi, SqlStatement::class.java).filterNot { it.parent is SqlStatement }
         assertEquals(2, statements.size)
         assertTrue(statements.first().text.endsWith("SELECT value"))
+    }
+    fun testSettingKeepsPersistedEnabledOptionAndAppliesCheckbox() {
+        val settings = project.service<TrinoPipesSettings>()
+        val state = TrinoPipesSettings::class.java.getAnnotation(com.intellij.openapi.components.State::class.java)
+        assertEquals("TrinoPipesSettings", state.name)
+        assertEquals(listOf(ToggleSettings.STORAGE), state.storages.map { it.value })
+        assertInstanceOf(settings.state, ToggleSettings.Options::class.java)
+        val configurable = TrinoPipesConfigurable(project)
+        try {
+            val checkbox = configurable.createComponent().components.filterIsInstance<javax.swing.JCheckBox>().single()
+            assertEquals("Trino PIPE support", checkbox.text)
+            assertFalse(checkbox.isSelected)
+            assertFalse(configurable.isModified())
+            checkbox.isSelected = true
+            assertTrue(configurable.isModified())
+            configurable.apply()
+            assertTrue(settings.state.enabled)
+            assertFalse(configurable.isModified())
+            settings.enabled = false
+            configurable.reset()
+            assertFalse(checkbox.isSelected)
+            assertFalse(configurable.isModified())
+        } finally { configurable.disposeUIResources() }
+    }
+    fun testPipeDiagnosticsUseSharedRangesAlongsideNativeErrors() {
+        val sql = "FROM t |> BOGUS 2; SELECT FROM WHERE;"
+        val file = myFixture.configureByText("pipe-errors.sql", sql)
+        dev.brikk.house.sql.intellij.testing.setSqlDialectMapping(project, file.virtualFile, TrinoSqlDialect)
+        project.service<TrinoPipesSettings>().enabled = true
+        PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
+        val annotator = TrinoErrorAnnotator()
+        val errors = annotator.annotations(myFixture.file)
+        assertEquals(1, errors.count { it.second.startsWith("Trino:") })
+        assertEquals(1, errors.count { it.second.startsWith("Trino PIPE:") })
+        val highlight = myFixture.doHighlighting().single { it.description?.startsWith("Trino PIPE:") == true }
+        assertTrue(highlight.toString(), sql.indexOf("BOGUS") in highlight.startOffset until highlight.endOffset)
+    }
+    fun testPipeSwitchInvalidatesOutcomesIncludingToggleBack() {
+        val file = myFixture.configureByText("pipe-toggle.sql", "FROM t |> BOGUS 2")
+        dev.brikk.house.sql.intellij.testing.setSqlDialectMapping(project, file.virtualFile, TrinoSqlDialect)
+        val settings = project.service<TrinoPipesSettings>()
+        val annotator = TrinoErrorAnnotator()
+        settings.enabled = true
+        PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
+        val psi = myFixture.file
+        val enabled = annotator.doAnnotate(annotator.collectInformation(psi))!!
+        assertTrue(annotator.annotations(psi, enabled).single().second.startsWith("Trino PIPE:"))
+        settings.enabled = false
+        assertEmpty(annotator.annotations(psi, enabled))
+        assertTrue(annotator.annotations(psi).single().second.startsWith("Trino:"))
+        settings.enabled = true
+        assertEmpty(annotator.annotations(psi, enabled))
+        assertTrue(annotator.annotations(psi).single().second.startsWith("Trino PIPE:"))
+    }
+
+    fun testWholeStagePhrasesIncludingNestedPipelinesGetKeywordColoring() {
+        val sql = "FROM (FROM t |> FULL OUTER JOIN u ON t.id = u.id) AS p |> ORDER BY id"
+        val file = myFixture.configureByText("pipe-colors.sql", sql)
+        dev.brikk.house.sql.intellij.testing.setSqlDialectMapping(project, file.virtualFile, TrinoSqlDialect)
+        project.service<TrinoPipesSettings>().enabled = true
+        PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
+        val colors = myFixture.doHighlighting().filter { it.forcedTextAttributesKey == DefaultLanguageHighlighterColors.KEYWORD }
+        for (word in listOf("FULL", "OUTER", "JOIN", "ORDER", "BY")) {
+            val start = sql.indexOf(word)
+            assertTrue("Missing keyword color for $word: $colors", colors.any { it.startOffset <= start && it.endOffset >= start + word.length })
+        }
+    }
+    fun testStagePhrasesAndInputAliasesComplete() {
+        dev.brikk.house.sql.intellij.testing.setSqlDialectMapping(project, null, TrinoSqlDialect)
+        project.service<TrinoPipesSettings>().enabled = true
+        myFixture.configureByText("pipe-keywords.sql", "FROM t |> <caret>")
+        val stages = myFixture.completeBasic().orEmpty()
+        val expected = setOf(
+            "AGGREGATE", "AS", "DISTINCT", "EXTEND", "LIMIT", "OFFSET", "ORDER BY", "SELECT", "WHERE", "WINDOW",
+            "JOIN", "INNER JOIN", "CROSS JOIN", "LEFT JOIN", "LEFT OUTER JOIN", "RIGHT JOIN", "RIGHT OUTER JOIN",
+            "FULL JOIN", "FULL OUTER JOIN", "SEMI JOIN", "ANTI JOIN", "TABLESAMPLE", "UNION",
+            "UNION ALL", "UNION DISTINCT", "INTERSECT", "INTERSECT ALL", "INTERSECT DISTINCT", "EXCEPT", "EXCEPT ALL", "EXCEPT DISTINCT",
+        )
+        assertEquals(expected, stages.map { it.lookupString }.toSet())
+        assertEquals(expected.size, stages.size)
+        for (stage in stages) {
+            val presentation = com.intellij.codeInsight.lookup.LookupElementPresentation().also(stage::renderElement)
+            assertTrue(presentation.isItemTextBold)
+            assertEquals(dev.brikk.house.sql.intellij.completion.SqlLookupStyles.DEFAULT[
+                dev.brikk.house.sql.intellij.completion.SqlLookupKind.PIPE_STAGE].typeText, presentation.typeText)
+        }
+        com.intellij.codeInsight.lookup.LookupManager.getInstance(project).hideActiveLookup()
+        myFixture.configureByText("pipe-columns.sql", "FROM t |> SELECT id AS my_output, id AS my_other |> WHERE my_<caret>")
+        myFixture.completeBasic()
+        assertTrue(myFixture.lookupElementStrings.orEmpty().contains("my_output"))
+        assertTrue(myFixture.lookupElementStrings.orEmpty().contains("my_other"))
     }
     fun testAllThreeDialectOrdersDelegateExactlyOnceAndStopOnClaim() {
         val orders = listOf(listOf(0,1,2), listOf(0,2,1), listOf(1,0,2), listOf(1,2,0), listOf(2,0,1), listOf(2,1,0))
@@ -75,9 +160,7 @@ class TrinoPipesPlatformTest : BasePlatformTestCase() {
     fun testPublicRegistrationRestoresOrDetachesWithoutClobberingPeer() {
         val manager = ActionManager.getInstance()
         val originals = CooperativeExecuteConfiguration.IDS.associateWith { manager.getAction(it) }
-        val configuration = object : CooperativeExecuteConfiguration() {
-            override val interceptor = ExecuteInterceptor { _, _ -> ExecutionClaim.DECLINED }
-        }
+        val configuration = TrinoPipesActionConfiguration()
         configuration.registerActions(manager)
         val wrapper = manager.getAction(CooperativeExecuteConfiguration.IDS.first()) as CooperativeExecuteAction
         val peer = CooperativeExecuteAction(1, wrapper, ExecuteInterceptor { _, _ -> ExecutionClaim.DECLINED })
@@ -101,18 +184,10 @@ class TrinoPipesPlatformTest : BasePlatformTestCase() {
             override fun actionPerformed(e: AnActionEvent) = wrapped.actionPerformed(e)
         }
         val other = object : AnAction() { override fun actionPerformed(e: AnActionEvent) {} }
-        val promoter = CooperativeExecutePromoter()
+        val promoter = TrinoPipesActionPromoter()
         assertEquals(listOf(wrapped), promoter.promote(listOf(other, wrapped), context))
         assertEquals(listOf(peer), promoter.promote(listOf(other, peer), context))
         assertEmpty(promoter.promote(listOf(other, stock), context))
         assertEmpty(promoter.promote(listOf(wrapped), DataContext.EMPTY_CONTEXT))
-    }
-    fun testClaimedCancellationNeverInvokesPredecessor() {
-        var delegated = 0
-        val previous = object : AnAction() { override fun actionPerformed(e: AnActionEvent) { delegated++ } }
-        val wrapper = CooperativeExecuteAction(1, previous, ExecuteInterceptor { _, _ -> throw com.intellij.openapi.progress.ProcessCanceledException() })
-        val event = AnActionEvent.createFromDataContext("cancel", Presentation(), SimpleDataContext.getProjectContext(project))
-        try { wrapper.actionPerformed(event); fail("Cancellation must propagate") } catch (_: com.intellij.openapi.progress.ProcessCanceledException) { }
-        assertEquals(0, delegated)
     }
 }

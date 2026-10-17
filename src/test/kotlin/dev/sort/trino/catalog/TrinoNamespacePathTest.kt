@@ -1,94 +1,57 @@
 package dev.sort.trino.catalog
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertSame
+import com.intellij.database.model.DasObject
+import dev.brikk.house.sql.intellij.catalog.NamespacePathResolver
+import java.lang.reflect.Proxy
+import org.junit.Assert.*
 import org.junit.Test
 
-/**
- * OFFLINE unit tests for the completion-time targeting decision — the "enumerated-but-childless"
- * detection and level inference — exercised with a fake model tree, no live DataGrip needed. This
- * is the whole reason [TrinoNamespacePath] is abstracted off `DasObject`.
- */
+/** All nine pre-unification namespace decisions, against the shared resolver. */
 class TrinoNamespacePathTest {
-
-    /** Minimal [TrinoNamespacePath.Node] fake. */
-    private class Fake(
-        override val name: String,
-        private val kids: List<Fake> = emptyList(),
-    ) : TrinoNamespacePath.Node {
-        override fun childNodes(): List<TrinoNamespacePath.Node> = kids
+    private class Fake(val name: String, val children: List<Fake> = emptyList()) {
+        val node: DasObject = Proxy.newProxyInstance(DasObject::class.java.classLoader, arrayOf(DasObject::class.java)) { proxy, method, args ->
+            when (method.name) {
+                "getName" -> name
+                "equals" -> proxy === args?.firstOrNull()
+                "hashCode" -> System.identityHashCode(proxy)
+                "toString" -> name
+                else -> error("Unexpected fake model call: ${method.name}")
+            }
+        } as DasObject
     }
-
-    // A model where:
-    //  - hive: enumerated catalog, schemas NOT loaded (childless)
-    //  - tpch: catalog with schema `tiny` enumerated but tables NOT loaded (childless schema)
-    //  - system: catalog with schema `runtime` that HAS a table (fully loaded)
     private val hive = Fake("hive")
     private val tiny = Fake("tiny")
     private val tpch = Fake("tpch", listOf(tiny))
     private val runtime = Fake("runtime", listOf(Fake("queries")))
     private val system = Fake("system", listOf(runtime))
-    private val roots = listOf(hive, tpch, system)
+    private val all = listOf(hive, tiny, tpch, runtime, system) + runtime.children
+    private val roots = listOf(hive, tpch, system).map { it.node }
+    private val resolver = NamespacePathResolver(TrinoCatalogProfile.levels, false, childrenOf = { node ->
+        all.single { it.node === node }.children.map { it.node }
+    })
+    private fun resolve(vararg path: String) = resolver.resolve(roots, path.toList())
+    private fun deepen(vararg path: String) = resolve(*path)?.takeIf { resolver.isChildless(it.node) }
 
-    @Test
-    fun resolvesCatalogRootByName() {
-        assertSame(hive, TrinoNamespacePath.resolve(roots, listOf("hive")))
-        assertSame(tiny, TrinoNamespacePath.resolve(roots, listOf("tpch", "tiny")))
+    @Test fun resolvesCatalogRootByName() {
+        assertSame(hive.node, resolve("hive")?.node)
+        assertSame(tiny.node, resolve("tpch", "tiny")?.node)
     }
-
-    @Test
-    fun resolveIsCaseInsensitive() {
-        assertSame(tiny, TrinoNamespacePath.resolve(roots, listOf("TPCH", "Tiny")))
+    @Test fun resolveIsCaseInsensitive() { assertSame(tiny.node, resolve("TPCH", "Tiny")?.node) }
+    @Test fun unresolvedSegmentResolvesToNull() {
+        assertNull(resolve("nope")); assertNull(resolve("tpch", "nope"))
     }
-
-    @Test
-    fun unresolvedSegmentResolvesToNull() {
-        assertNull("a non-existent catalog must not resolve", TrinoNamespacePath.resolve(roots, listOf("nope")))
-        assertNull("a non-existent schema must not resolve", TrinoNamespacePath.resolve(roots, listOf("tpch", "nope")))
+    @Test fun childlessCatalogDecidesCatalogDeepen() {
+        val target = requireNotNull(deepen("hive"))
+        assertEquals(listOf("hive"), target.path); assertSame(hive.node, target.node)
     }
-
-    @Test
-    fun childlessCatalogDecidesCatalogDeepen() {
-        val d = TrinoNamespacePath.decideDeepen(roots, listOf("hive"))
-        assertEquals(TrinoNamespacePath.Level.CATALOG, d!!.level)
-        assertEquals("hive", d.catalog)
-        assertNull(d.schema)
-        assertSame(hive, d.node)
+    @Test fun childlessSchemaDecidesSchemaDeepen() {
+        val target = requireNotNull(deepen("tpch", "tiny"))
+        assertEquals(listOf("tpch", "tiny"), target.path); assertSame(tiny.node, target.node)
     }
-
-    @Test
-    fun childlessSchemaDecidesSchemaDeepen() {
-        val d = TrinoNamespacePath.decideDeepen(roots, listOf("tpch", "tiny"))
-        assertEquals(TrinoNamespacePath.Level.SCHEMA, d!!.level)
-        assertEquals("tpch", d.catalog)
-        assertEquals("tiny", d.schema)
-        assertSame(tiny, d.node)
-    }
-
-    @Test
-    fun catalogWithLoadedSchemasDoesNotDeepen() {
-        // tpch already has a child schema -> not childless -> normal completion handles it.
-        assertNull(TrinoNamespacePath.decideDeepen(roots, listOf("tpch")))
-    }
-
-    @Test
-    fun schemaWithLoadedTablesDoesNotDeepen() {
-        assertNull(TrinoNamespacePath.decideDeepen(roots, listOf("system", "runtime")))
-    }
-
-    @Test
-    fun unresolvedPathDoesNotDeepen() {
-        // Mid-typing / typo: nothing resolves, so nothing is kicked (never spam introspection).
-        assertNull(TrinoNamespacePath.decideDeepen(roots, listOf("hiv")))
-        assertNull(TrinoNamespacePath.decideDeepen(roots, listOf("tpch", "tin")))
-    }
-
-    @Test
-    fun pathDeeperThanSchemaIsIgnored() {
-        // catalog.schema.table.<caret> addresses a table; columns come with the table, so the
-        // platform owns it — we only deepen catalog (schemas) and schema (tables).
-        assertNull(TrinoNamespacePath.decideDeepen(roots, listOf("system", "runtime", "queries")))
-        assertNull(TrinoNamespacePath.decideDeepen(roots, emptyList()))
+    @Test fun catalogWithLoadedSchemasDoesNotDeepen() { assertNull(deepen("tpch")) }
+    @Test fun schemaWithLoadedTablesDoesNotDeepen() { assertNull(deepen("system", "runtime")) }
+    @Test fun unresolvedPathDoesNotDeepen() { assertNull(deepen("hiv")); assertNull(deepen("tpch", "tin")) }
+    @Test fun pathDeeperThanSchemaIsIgnored() {
+        assertNull(deepen("system", "runtime", "queries")); assertNull(deepen())
     }
 }

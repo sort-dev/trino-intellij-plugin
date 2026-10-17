@@ -7,12 +7,18 @@ import com.intellij.psi.*
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.refactoring.rename.RenameProcessor
 import com.intellij.sql.psi.SqlReferenceExpression
+import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.brikk.house.intellij.*
+import dev.brikk.house.sql.intellij.pipe.PipeExecuteInterceptor
+import dev.brikk.house.sql.intellij.pipe.PipeText
+import dev.brikk.house.sql.intellij.pipe.isEditingEnabled
 import dev.sort.trino.pipes.*
-import org.jetbrains.kotlin.psi.KtStringTemplateExpression
-import org.jetbrains.kotlin.psi.KtNameReferenceExpression
+import dev.sort.trino.validate.TrinoErrorAnnotator
+import dev.sort.trino.validate.annotations
 import org.jetbrains.kotlin.idea.references.mainReference
+import org.jetbrains.kotlin.psi.KtNameReferenceExpression
+import org.jetbrains.kotlin.psi.KtStringTemplateExpression
 
 open class BrikkTrinoInjectionTest : BasePlatformTestCase() {
     override fun setUp() {
@@ -56,7 +62,7 @@ open class BrikkTrinoInjectionTest : BasePlatformTestCase() {
         val file = injected(host)
         assertTrue(file.text, "tenant = :tenant" in file.text)
         assertEquals(listOf("tenant"), BrikkTrinoProfile.forFile(file)!!.binds)
-        assertTrue(TrinoPipes.isEnabled(file))
+        assertTrue(TrinoPipeDialect.isEditingEnabled(file))
         assertFalse(project.service<TrinoPipesSettings>().enabled)
         assertEmpty(PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java))
         val reference = host.entries.mapNotNull { it.expression as? KtNameReferenceExpression }.single()
@@ -74,6 +80,104 @@ open class BrikkTrinoInjectionTest : BasePlatformTestCase() {
         assertEquals(listOf("src"), BrikkTrinoProfile.forFile(file)!!.slots)
         assertEmpty(BrikkTrinoProfile.forFile(file)!!.issues)
     }
+    fun testSharedInjectorUsesCustomMarginAndOrderedTrims() {
+        val host = configure("""
+            @BrikkSql fun query(id: Int) = Sql.trino(""${'"'}
+                #SELECT ${'$'}id AS id
+                #FROM customers
+            ""${'"'}.trimMargin("#").trimIndent())
+        """.trimIndent())
+        val file = injected(host)
+        assertEquals("-- dialect: trino\nSELECT :id AS id\nFROM customers", PipeText.of(file).text)
+        assertTrue(TrinoHostSql.parsesColonBinds(file))
+    }
+
+    fun testPendingClaimsUseOnlyHelperProjectionAndPlaceholders() {
+        val host = configure("@BrikkSql fun query(id: Int) = Sql.trino(\"SELECT ${'$'}id AS id\")")
+        val injector = dev.sort.trino.brikk.kotlin.BrikkTrinoHostSqlInjector()
+        assertInstanceOf(injector.claim(host), dev.brikk.house.sql.intellij.host.HostSqlClaim.Injected::class.java)
+        com.intellij.testFramework.DumbModeTestUtils.computeInDumbModeSynchronously(project,
+            com.intellij.openapi.util.ThrowableComputable<Unit, Throwable> {
+                val claim = injector.claim(host) as dev.brikk.house.sql.intellij.host.HostSqlClaim.Injected
+                assertTrue(claim.pending)
+                assertTrue(claim.inspectionOnly)
+                assertTrue(claim.entries.entries.filter { it.replacement != null }.all { it.placeholder })
+            })
+        val unseen = configure("""
+            import dev.brikk.house.sql.runtime.Sql
+            import dev.brikk.house.sql.runtime.BrikkSql
+            @BrikkSql fun query(id: Int) = Sql.trino("SELECT ${'$'}id AS id")
+        """.trimIndent())
+        com.intellij.testFramework.DumbModeTestUtils.computeInDumbModeSynchronously(project,
+            com.intellij.openapi.util.ThrowableComputable<Unit, Throwable> {
+                assertInstanceOf(injector.claim(unseen), dev.brikk.house.sql.intellij.host.HostSqlClaim.Unavailable::class.java)
+            })
+    }
+    fun testBrikkParseErrorHighlightsTheWholeToken() {
+        for (sql in listOf("SELECT 1 FROM", "SELECT \\\"face\\\" FROM")) {
+            val file = injected(configure("@BrikkSql fun query() = Sql.trino(\"$sql\")"))
+            assertEmpty(BrikkTrinoProfile.forFile(file)!!.issues)
+            val annotator = TrinoErrorAnnotator()
+            val top = InjectedLanguageManager.getInstance(project).getTopLevelFile(file)
+            val errors = annotator.annotations(top)
+            assertEquals(errors.toString(), 1, errors.size)
+            val (range, message) = errors.single()
+            assertTrue(message, message.startsWith("Trino Brikk:"))
+            assertEquals("FROM", top.text.substring(range.startOffset, range.endOffset))
+        }
+    }
+    fun testNativeInjectedPipeDiagnosticsUseUnescapedCoordinates() {
+        val settings = project.service<TrinoPipesSettings>()
+        val previous = settings.enabled
+        settings.enabled = true
+        try {
+            for (sql in listOf(
+                "FROM t |> SELECT \\\"face\\\" AS face\\n |> BOGUS 2",
+                "SELECT \\\"face\\\" AS face;\\nFROM t |> BOGUS 2",
+            )) {
+                val file = injected(configure("fun query() = Sql.trino(\"$sql\")"))
+                assertNull(BrikkTrinoProfile.forFile(file))
+                val source = PipeText.of(file)
+                assertTrue("Expected an escaped injection: ${file.text}", file.text.length > source.text.length)
+                val annotator = TrinoErrorAnnotator()
+                val top = InjectedLanguageManager.getInstance(project).getTopLevelFile(file)
+                val errors = annotator.annotations(top)
+                assertEquals(errors.toString(), 1, errors.size)
+                val (range, message) = errors.single()
+                assertTrue(message, message.startsWith("Trino PIPE:"))
+                assertEquals("BOGUS", top.text.substring(range.startOffset, range.endOffset))
+            }
+        } finally {
+            settings.enabled = previous
+            PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
+        }
+    }
+    fun testHostChecksEveryFragmentWithItsOwnBrikkProfile() {
+        configure("""
+            @BrikkSql fun template(id: Int) = Sql.trino("SELECT ${'$'}id AS id")
+            fun native() = Sql.trino("SELECT FROM WHERE")
+        """.trimIndent())
+        val top = myFixture.file
+        val errors = TrinoErrorAnnotator().annotations(top)
+        assertEquals(errors.toString(), 1, errors.size)
+        val (range, message) = errors.single()
+        assertTrue(message, message.startsWith("Trino:"))
+        assertEquals("FROM", top.text.substring(range.startOffset, range.endOffset))
+    }
+
+    fun testFromFirstInjectionPreservesLaterStatements() {
+        for (first in listOf("FROM src()", "FROM src() |> SELECT id")) {
+            val file = injected(configure("@BrikkSql fun query(src: Rel<Nothing>) = Sql.trino(\"$first; SELECT 42 AS later; SELECT 43 AS tail\")"))
+            val statements = PsiTreeUtil.findChildrenOfType(file, com.intellij.sql.psi.SqlStatement::class.java)
+                .filterNot { it.parent is com.intellij.sql.psi.SqlStatement }
+            assertTrue(statements.map { it.text }.toString(), statements.any { it.text.trim().removeSuffix(";") == first })
+            assertTrue(statements.any { it.text.trim().removeSuffix(";") == "SELECT 42 AS later" })
+            assertTrue(statements.any { it.text.trim().removeSuffix(";") == "SELECT 43 AS tail" })
+            val selects = PsiTreeUtil.findChildrenOfType(file, com.intellij.sql.psi.SqlSelectStatement::class.java)
+            assertTrue(selects.any { it.text.trim().removeSuffix(";") == "SELECT 42 AS later" })
+            assertTrue(selects.any { it.text.trim().removeSuffix(";") == "SELECT 43 AS tail" })
+        }
+    }
     fun testUnknownAndComplexInterpolationAreNotInventedColumns() {
         val host = configure("@BrikkSql fun query(x: Int) = Sql.trino(\"SELECT \${x + 1}, \$missing\")")
         val file = injected(host)
@@ -87,8 +191,8 @@ open class BrikkTrinoInjectionTest : BasePlatformTestCase() {
             @BrikkSql fun query(src: Rel<Events>) = Sql.trino("SELECT e.amount FROM ${'$'}src() AS e")
         """.trimIndent())
         var file = injected(host)
-        val shape = (BrikkTrinoProfile.contracts(file)["src"] as ShapeResult.Available).shape
-        assertEquals(ShapeKnowledge.PARTIAL, shape.knowledge)
+        val shape = (BrikkRelationFacts(BrikkDialect.TRINO).facts(file) as BrikkRelationFactsResult.Available).facts.slots.getValue("src")
+        assertEquals(dev.brikk.house.sql.scope.Knowledge.PARTIAL, shape.knowledge)
         assertEquals(setOf("id", "amount"), shape.columns.map { it.name }.toSet())
         val ref = PsiTreeUtil.findChildrenOfType(file, SqlReferenceExpression::class.java).first { it.text == "e.amount" }
         val resolved = ref.reference.resolve()
@@ -101,7 +205,7 @@ open class BrikkTrinoInjectionTest : BasePlatformTestCase() {
         PsiDocumentManager.getInstance(project).commitAllDocuments()
         host = PsiTreeUtil.findChildrenOfType(myFixture.file, KtStringTemplateExpression::class.java).last()
         file = injected(host)
-        assertTrue((BrikkTrinoProfile.contracts(file)["src"] as ShapeResult.Available).shape.columns.any { it.name == "region" })
+        assertTrue((BrikkRelationFacts(BrikkDialect.TRINO).facts(file) as BrikkRelationFactsResult.Available).facts.slots.getValue("src").columns.any { it.name == "region" })
     }
     fun testPipeCompletionAndProjectionVisibility() {
         val host = configure("""
@@ -115,6 +219,81 @@ open class BrikkTrinoInjectionTest : BasePlatformTestCase() {
         amount.renderElement(presentation)
         assertEquals("brikk column (src)", presentation.tailText?.trim())
         assertEquals("Double?", presentation.typeText)
+        assertEquals(dev.brikk.house.sql.intellij.completion.SqlLookupIcons.BrikkColumn, presentation.icon)
+    }
+    fun testKotlinColumnRenameUpdatesSqlReferences() {
+        val host = configure("""
+            interface Events : Partial { val amount: Double? }
+            @BrikkSql fun query(src: Rel<Events>) = Sql.trino("SELECT e.amount FROM ${'$'}src() AS e WHERE e.amount > 0")
+        """.trimIndent())
+        val file = injected(host)
+        val references = PsiTreeUtil.findChildrenOfType(file, SqlReferenceExpression::class.java).filter { it.text == "e.amount" }
+        assertEquals(2, references.size)
+        val declaration = references.first().reference.resolve()!!.navigationElement
+        assertEquals("amount", (declaration as PsiNamedElement).name)
+        assertTrue(references.all { it.reference.isReferenceTo(declaration) })
+        RenameProcessor(project, declaration, "total", false, false).run()
+        assertTrue(myFixture.editor.document.text, "val total: Double?" in myFixture.editor.document.text)
+        assertFalse(myFixture.editor.document.text, "e.amount" in myFixture.editor.document.text)
+        assertEquals(2, Regex("e\\.total").findAll(myFixture.editor.document.text).count())
+    }
+    fun testLineageKnownRenameKeepsBrikkPresentation() {
+        val host = configure("""
+            interface Events : Partial { val amount: Double?; val amount_total: Double }
+            @BrikkSql fun query(src: Rel<Events>) = Sql.trino("FROM ${'$'}src() |> SELECT amount AS renamed, amount_total |> WHERE ren<caret>")
+        """.trimIndent())
+        injected(host)
+        com.intellij.codeInsight.CodeInsightSettings.getInstance().let { settings ->
+            val previous = settings.AUTOCOMPLETE_ON_CODE_COMPLETION
+            settings.AUTOCOMPLETE_ON_CODE_COMPLETION = false
+            try {
+                myFixture.completeBasic()
+                val item = myFixture.lookupElements.orEmpty().single { it.lookupString == "renamed" }
+                val shown = com.intellij.codeInsight.lookup.LookupElementPresentation().also(item::renderElement)
+                assertEquals("brikk column (src)", shown.tailText?.trim())
+                assertEquals("Double?", shown.typeText)
+                assertEquals(dev.brikk.house.sql.intellij.completion.SqlLookupIcons.BrikkColumn, shown.icon)
+            } finally {
+                settings.AUTOCOMPLETE_ON_CODE_COMPLETION = previous
+            }
+        }
+    }
+    fun testBrikkColumnCompletionWithProjectPipesOff() {
+        assertFalse(project.service<TrinoPipesSettings>().enabled)
+        assertBrikkColumnsOffered()
+    }
+    fun testBrikkColumnCompletionWithPipesVetoed() {
+        val old = System.getProperty("trino.pipes")
+        try {
+            System.setProperty("trino.pipes", "false")
+            assertBrikkColumnsOffered()
+        } finally {
+            if (old == null) System.clearProperty("trino.pipes") else System.setProperty("trino.pipes", old)
+        }
+    }
+    fun testPipesVetoDisablesBrikkEditingWithoutEnablingExecution() {
+        val file = injected(configure("@BrikkSql fun query() = Sql.trino(\"FROM t |> SELECT id\")"))
+        assertTrue(TrinoPipeDialect.isEditingEnabled(file))
+        assertTrue(TrinoPipeDialect.isInspectionHost(file))
+        assertTrue(TrinoPipeDialect.enablesPreview(file))
+        val previous = System.getProperty(TrinoPipeDialect.vetoProperty)
+        try {
+            System.setProperty(TrinoPipeDialect.vetoProperty, "false")
+            assertFalse(TrinoPipeDialect.isEditingEnabled(file))
+        } finally {
+            if (previous == null) System.clearProperty(TrinoPipeDialect.vetoProperty)
+            else System.setProperty(TrinoPipeDialect.vetoProperty, previous)
+        }
+    }
+    private fun assertBrikkColumnsOffered() {
+        val host = configure("""
+            interface Events : Partial { val event_id: Long; val event_time: String }
+            @BrikkSql fun query(src: Rel<Events>) = Sql.trino("SELECT event_<caret> FROM ${'$'}src()")
+        """.trimIndent())
+        injected(host)
+        val offered = myFixture.completeBasic().orEmpty().map { it.lookupString }.toSet()
+        assertTrue(offered.toString(), "event_id" in offered)
+        assertTrue(offered.toString(), "event_time" in offered)
     }
     fun testSameNamedCompletionColumnsKeepAliasAndNullability() {
         val host = configure("""
@@ -138,9 +317,39 @@ open class BrikkTrinoInjectionTest : BasePlatformTestCase() {
                 .add(com.intellij.openapi.actionSystem.CommonDataKeys.PROJECT, project)
                 .add(com.intellij.openapi.actionSystem.CommonDataKeys.PSI_FILE, file).build())
         assertEquals(dev.brikk.house.sql.intellij.ExecutionClaim.HANDLED,
-            PipesExecuteInterceptor.handle(event, com.intellij.database.settings.DatabaseSettings.ExecOption()))
+            PipeExecuteInterceptor(TrinoPipeDialect).execute(event, com.intellij.database.settings.DatabaseSettings.ExecOption()))
         assertFalse(RunPipesToStageIntention().isAvailable(project, myFixture.editor, file))
-        assertFalse(PreviewPipeSqlIntention().isAvailable(project, myFixture.editor, file))
+        assertTrue(PreviewPipeSqlIntention().isAvailable(project, myFixture.editor, file))
+    }
+    fun testExecuteFromRealKotlinHostEditorIsRefused() {
+        dev.brikk.house.sql.intellij.testing.HostSqlExecutionContract(TrinoPipeDialect) {
+            configure("@BrikkSql fun query() = Sql.trino(\"FROM t |> SELECT i<caret>d\")")
+            val top = InjectedLanguageManager.getInstance(project).getTopLevelFile(myFixture.file)
+            assertEquals("kotlin", top.language.id)
+            val editor = (myFixture.editor as? com.intellij.injected.editor.EditorWindow)?.delegate ?: myFixture.editor
+            assertEquals(top, PsiDocumentManager.getInstance(project).getPsiFile(editor.document))
+            editor
+        }.refusesInspectionOnlySqlFromTheHostEditor()
+    }
+    fun testForeignDialectBrikkInjectionIsInspectionOnly() {
+        myFixture.configureByText("Foreign.kt", """
+            import dev.brikk.house.sql.runtime.*
+            @BrikkSql fun query() = Sql.duckdb("FROM t |> SELECT id")
+        """.trimIndent())
+        val host = PsiTreeUtil.findChildrenOfType(myFixture.file, KtStringTemplateExpression::class.java).single()
+        assertTrue(dev.sort.trino.brikk.kotlin.BrikkTrinoInspectionHostGuard().isInspectionOnly(host))
+        assertEquals(dev.brikk.house.sql.intellij.host.HostSqlClaim.NotClaimed,
+            dev.sort.trino.brikk.kotlin.BrikkTrinoHostSqlInjector().claim(host))
+    }
+    fun testRunInConsoleIsUnavailableForBrikkButAvailableForPlainSql() {
+        val veto = TrinoHostRunConsoleVeto()
+        val host = configure("@BrikkSql fun query() = Sql.trino(\"SELECT <caret>1\")")
+        val file = injected(host)
+        assertFalse(veto.isAvailable(myFixture.editor, file))
+        val plain = myFixture.configureByText("plain-run.sql", "SELECT <caret>1")
+        dev.brikk.house.sql.intellij.testing.setSqlDialectMapping(project, plain.virtualFile,
+            dev.sort.trino.sql.TrinoSqlDialect, testRootDisposable)
+        assertTrue(veto.isAvailable(myFixture.editor, plain))
     }
     fun testAnnotationRemovalWithdrawsBrikkProfile() {
         var host = configure("@BrikkSql fun query(x: Int) = Sql.trino(\"SELECT \$x\")")
@@ -167,7 +376,7 @@ open class BrikkTrinoInjectionTest : BasePlatformTestCase() {
     }
     fun testPhysicalDdlInspectionsKeepColumnsAndBindsDistinct() {
         val schema = myFixture.addFileToProject("schema.sql", "CREATE TABLE customers (tenant VARCHAR NOT NULL, id INTEGER);")
-        dev.sort.trino.setSqlDialectMapping(project, schema.virtualFile, dev.sort.trino.sql.TrinoSqlDialect.INSTANCE)
+        dev.brikk.house.sql.intellij.testing.setSqlDialectMapping(project, schema.virtualFile, dev.sort.trino.sql.TrinoSqlDialect)
         val manager = com.intellij.sql.database.SqlDataSourceManager.getInstance(project)
         val source = manager.createEmpty().apply {
             name = "Brikk Trino DDL fixture"

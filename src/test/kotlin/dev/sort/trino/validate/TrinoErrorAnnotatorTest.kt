@@ -4,7 +4,7 @@ import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
-import com.intellij.sql.dialects.SqlDialectMappings
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.sort.trino.sql.TrinoSqlDialect
 
@@ -12,7 +12,7 @@ import dev.sort.trino.sql.TrinoSqlDialect
  * Drives the Stage-2 annotator pipeline directly (collectInformation -> doAnnotate) so assertions
  * are deterministic regardless of whether the light fixture schedules the external-annotator pass
  * (the duckdb annotator was proven the same way). doAnnotate already produces absolute document
- * ranges + messages, so the [TrinoErrorAnnotator.Result] is the full engine verdict for a file.
+ * ranges + messages are checked after applying the shared outcome.
  */
 class TrinoErrorAnnotatorTest : BasePlatformTestCase() {
 
@@ -21,15 +21,14 @@ class TrinoErrorAnnotatorTest : BasePlatformTestCase() {
 
     private fun trinoFile(sql: String): PsiFile {
         val psi = myFixture.configureByText("t${counter++}.sql", sql)
-        SqlDialectMappings.getInstance(project).setMapping(psi.virtualFile, TrinoSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, psi.virtualFile, TrinoSqlDialect)
         return PsiManager.getInstance(project).findFile(psi.virtualFile)!!
     }
 
     /** collect + doAnnotate over [sql]; returns the source and the engine errors it produced. */
     private fun annotate(sql: String): Pair<String, List<Pair<TextRange, String>>> {
-        val info = annotator.collectInformation(trinoFile(sql))
-        val result = info?.let { annotator.doAnnotate(it) }
-        return sql to (result?.errors ?: emptyList())
+        val file = trinoFile(sql)
+        return file.text to annotator.annotations(file)
     }
 
     private fun textOf(sql: String, range: TextRange) = sql.substring(range.startOffset, range.endOffset)
@@ -52,11 +51,9 @@ class TrinoErrorAnnotatorTest : BasePlatformTestCase() {
     }
 
     fun testHeadlessGibberishIsHandledGracefully() {
-        // No recognizable statement head -> the substrate emits loose error tokens and NO
-        // SqlStatement node, so there is nothing to hand the parser: no annotation, and — the point
-        // of the guard — no crash. Real queries always start with a statement head; this is
-        // transient typing state, where silence beats a confusing red.
-        assertTrue(annotate("FOO BAR BAZ").second.isEmpty())
+        val (sql, errors) = annotate("FOO BAR BAZ")
+        assertEquals(1, errors.size)
+        assertEquals("FOO", textOf(sql, errors.single().first))
     }
 
     fun testOnlyInvalidStatementsFlaggedInAMixedFile() {
@@ -103,22 +100,39 @@ class TrinoErrorAnnotatorTest : BasePlatformTestCase() {
     }
 
     fun testCommentOnlyFileCollectsNothing() {
-        assertNull("no statement to validate -> no info", annotator.collectInformation(trinoFile("-- just a comment\n/* another */")))
+        assertEmpty(annotate("-- just a comment\n/* another */").second)
     }
 
     fun testNativeCodePointColumnMapsToUtf16AfterSupplementaryCharacter() {
-        val (sql, errors) = annotate("SELECT '😀' AS emoji FROM t WHERE AND x")
-        assertEquals(1, errors.size)
-        assertEquals("AND", textOf(sql, errors.single().first))
+        for (sql in listOf("SELECT '😀' AS emoji FROM t WHERE AND x", "SELECT '😀' AS emoji\r\nFROM t\r\nWHERE AND x")) {
+            // IntelliJ normalizes CRLF in the document; ranges belong to that text.
+            val (documentText, errors) = annotate(sql)
+            assertEquals(1, errors.size)
+            assertEquals("AND", textOf(documentText, errors.single().first))
+            assertEquals(documentText.indexOf("AND"), errors.single().first.startOffset)
+        }
     }
 
     fun testValidTrinoStaysCleanThroughTheEditorPath() {
         // Exercises the full highlighting path (registration + apply) when the pass schedules;
         // valid Trino must never surface a "Trino:" error either way.
         val psi = myFixture.configureByText("clean.sql", "SELECT id, count(*) FROM hive.web.users GROUP BY id;")
-        SqlDialectMappings.getInstance(project).setMapping(psi.virtualFile, TrinoSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, psi.virtualFile, TrinoSqlDialect)
         val trinoErrors = myFixture.doHighlighting()
             .filter { it.severity == HighlightSeverity.ERROR && it.description?.startsWith("Trino:") == true }
         assertTrue("valid Trino must not raise engine errors, got: ${trinoErrors.map { it.description }}", trinoErrors.isEmpty())
+    }
+
+    fun testEditAndRevertRejectsStaleOutcome() {
+        val sql = "SELECT FROM WHERE"
+        val file = trinoFile(sql)
+        val result = annotator.doAnnotate(annotator.collectInformation(file))!!
+        com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(project) {
+            myFixture.editor.document.setText("SELECT 1")
+            myFixture.editor.document.setText(sql)
+            com.intellij.psi.PsiDocumentManager.getInstance(project).commitAllDocuments()
+        }
+        assertEmpty(annotator.annotations(file, result))
+        assertEquals(1, annotator.annotations(file).size)
     }
 }

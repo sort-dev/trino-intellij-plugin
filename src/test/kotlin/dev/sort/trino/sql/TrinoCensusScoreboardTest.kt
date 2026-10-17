@@ -2,8 +2,9 @@ package dev.sort.trino.sql
 
 import com.intellij.psi.PsiErrorElement
 import com.intellij.psi.util.PsiTreeUtil
-import com.intellij.sql.dialects.SqlDialectMappings
+import dev.brikk.house.sql.intellij.testing.setSqlDialectMapping
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import dev.brikk.house.sql.intellij.testing.assertRestartsMatchFullLex
 import java.io.File
 
 /**
@@ -28,7 +29,7 @@ class TrinoCensusScoreboardTest : BasePlatformTestCase() {
 
     private fun verdict(sql: String): Verdict {
         val psi = myFixture.configureByText("c${counter++}.sql", sql)
-        SqlDialectMappings.getInstance(project).setMapping(psi.virtualFile, TrinoSqlDialect.INSTANCE)
+        setSqlDialectMapping(project, psi.virtualFile, TrinoSqlDialect)
         val file = com.intellij.psi.PsiManager.getInstance(project).findFile(psi.virtualFile)!!
         val errs = PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java)
         val first = errs.firstOrNull()
@@ -74,6 +75,7 @@ class TrinoCensusScoreboardTest : BasePlatformTestCase() {
             val family = f.nameWithoutExtension
             var familyGreen = true
             for ((origin, sql) in statementsOf(f)) {
+                assertRestartsMatchFullLex(::TrinoLexer, sql)
                 val v = verdict(sql)
                 if (v.errors > 0) {
                     familyGreen = false
@@ -82,6 +84,7 @@ class TrinoCensusScoreboardTest : BasePlatformTestCase() {
             }
             // cross-statement leakage: the family file as ONE multi-statement document
             if (familyGreen) {
+                assertRestartsMatchFullLex(::TrinoLexer, f.readText())
                 val v = verdict(f.readText())
                 if (v.errors > 0) {
                     familyGreen = false

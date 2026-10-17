@@ -47,14 +47,14 @@ class BrikkCompilerRelationTest : BrikkTrinoInjectionTest() {
             @BrikkSql fun query(src: Rel<SourceOut>) = Sql.trino("SELECT r.code FROM ${'$'}src() AS r")
         """.trimIndent())
         val file = injected(host)
-        val result = BrikkTrinoProfile.contracts(file)["src"]
-        assertTrue(result.toString(), result is ShapeResult.Available)
-        val shape = (result as ShapeResult.Available).shape
-        assertEquals(ShapeKnowledge.FULL, shape.knowledge)
+        val result = BrikkRelationFacts(BrikkDialect.TRINO).facts(file)
+        assertTrue(result.toString(), result is BrikkRelationFactsResult.Available)
+        val shape = (result as BrikkRelationFactsResult.Available).facts.slots.getValue("src")
+        assertEquals(dev.brikk.house.sql.scope.Knowledge.FULL, shape.knowledge)
         assertEquals(setOf("id", "code"), shape.columns.map { it.name }.toSet())
         val reference = PsiTreeUtil.findChildrenOfType(file, SqlReferenceExpression::class.java).first { it.text == "r.code" }
         assertNotNull(reference.reference.resolve())
-        assertEquals(NavigationKind.RELATION_FALLBACK, shape.columns.single { it.name == "code" }.navigation!!.kind)
+        assertEquals(dev.brikk.house.sql.scope.ColumnOrigin.RELATION_CONTRACT, shape.columns.single { it.name == "code" }.origin)
     }
     fun testActualRefinedCallAndDeclaredGenericBounds() {
         enableCompiler()
@@ -64,9 +64,9 @@ class BrikkCompilerRelationTest : BrikkTrinoInjectionTest() {
             @BrikkSql fun <T : HasId> extend(src: Rel<T>) = Sql.trino("FROM ${'$'}src() |> EXTEND 2 AS added")
             fun use() { val refined = extend(source()); println(refined) }
         """.trimIndent())
-        val generic = (BrikkTrinoProfile.contracts(injected(host))["src"] as ShapeResult.Available).shape
+        val generic = (BrikkRelationFacts(BrikkDialect.TRINO).facts(injected(host)) as BrikkRelationFactsResult.Available).facts.slots.getValue("src")
         assertEquals(setOf("id"), generic.columns.map { it.name }.toSet())
-        assertEquals(ShapeKnowledge.PARTIAL, generic.knowledge)
+        assertEquals(dev.brikk.house.sql.scope.Knowledge.PARTIAL, generic.knowledge)
         val expression = PsiTreeUtil.findChildrenOfType(myFixture.file, KtCallExpression::class.java).single { it.calleeExpression?.text == "extend" }
         val refined = BrikkRelationShapes.ofExpression(expression)
         assertTrue(refined.toString(), refined is ShapeResult.Available)

@@ -72,8 +72,11 @@ playbook possible: the editor's error authority IS the engine's grammar, bundled
 
 ## Building from source
 
+The next release is **0.4.1**, which upgrades the delivered `0.4.0-dev` builds.
+
 ```bash
-./gradlew buildPlugin   # → build/distributions/trino-intellij-plugin.zip
+./gradlew buildPlugin   # → build/distributions/trino-intellij-plugin-<dev-version>.zip
+./gradlew buildPlugin -Prelease=true   # → build/distributions/trino-intellij-plugin-0.4.1.zip
 ./gradlew test          # boot + driver-facts + parser-authority (census scoreboard arrives with Stage 1)
 ```
 
@@ -81,14 +84,58 @@ Compile SDK: IDEA 2026.1.3, Kotlin 2.4.10. Plugin and helper classes target Java
 the bundled Trino 483 parser requires Java 25. Build/test with JDK 25 and use the
 supported IDE's bundled JBR 25. Kotlin integration is optional in DataGrip.
 
-SQL core/metadata 0.19.1, SQL IntelliJ support 0.1.1 and Brikk Kotlin support 0.2.0
-resolve from Maven Central. The ZIP embeds the helpers, so installation requires
-no Maven setup. An explicit `-PsqlIdeVersion=...-SNAPSHOT` permits a coordinate-scoped
-Maven Local override when developing the SQL helper.
+`./gradlew test262 test263` runs the full offline suite on newer IDE runtimes using
+the same 261-compiled classes. The generated-shape test runs on `test262` with
+`-Ptest.ide262=/path/to/IDEA-262.9437.185` and
+`-Ptest.brikkCompilerPlugin=/path/to/the/reviewed/compiler-plugin.jar`.
+
+The shared catalog unconditionally selects released `dev.brikk.house` libraries from
+Maven Central: `brikk-sql-jvm`, `brikk-sql-metadata-jvm`, `brikk-sql-verify-api` and
+`brikk-sql-verify-trino` **0.20.0**; `brikk-sql-intellij-support` and test-only
+`brikk-sql-intellij-test-support` **0.2.0**; `brikk-engine-kotlin-intellij-support`
+**0.3.0**. There are no snapshot overrides or Maven Local substitutes. The ZIP embeds
+the runtime helpers, never test-support, so installation requires no Maven setup.
+
+Release prerequisites: the owner must publish SQL/core/metadata/verification and
+support/test-support to Maven Central first, then the Kotlin helper. Formal compilation,
+tests and packaging require those publications. `-Prelease=true` uses the base version
+unchanged and makes `buildPlugin` run the shared `verifyRelease` dependency guard.
+Property key/value completion remains disabled.
+
+### Release artifacts
+
+A push to `release-*` runs only `.github/workflows/release.yml`, which calls the shared
+artifact workflow pinned to `6e77690f0bea7aee30faf3808de3e27b4f7e44fa`. It builds with
+`-Prelease=true`, validates the ZIP filename, main JAR and plugin descriptor with
+`build-logic/tools/verify-release-zip.py`, then creates the tag and GitHub release with
+the unchanged ZIP. It never uploads to JetBrains Marketplace; the owner handles that
+handoff after verifying the release artifact.
+
+Normal CI keeps its main/froze-over, pull-request and manual triggers and existing tests.
+Its Plugin Verifier job runs only on manual dispatch, not on release-branch pushes.
+
+### Opt-in external SQL scans
+
+```bash
+./gradlew --no-daemon --max-workers=2 test test262 test263 -Ptest.kotlin=absent \
+  -PrealSql.dir=/path/to/sql '-PrealSql.glob=*trino*.sql'
+```
+
+Both the directory and file glob are required; neither has a default. Only matching
+SQL files are read, never modified. An explicitly approved additional file can be
+included with `-PrealSql.extraFile=/path/to/one.sql`; it has no default. Every statement goes through registered Trino
+highlighting with a DDL-derived model and with no model, with PIPE off and on.
+There are no server connections; introspection is intercepted locally. Missing
+metadata reports are recorded separately from syntax and column findings.
+
+Raw statements, diagnostics, IDE logs/caches and scan test reports are confined to
+`build/realsql/`. Treat that directory as private scratch and delete it after
+triage. Only invented-name, neutral-literal replay tests belong in the repository;
+public reports should contain shapes and counts, not source text or names.
 
 ## Built-in PIPE queries
 
-Enable **Settings > Tools > Trino PIPE** for the current project. No SQL Transpiler
+Enable **Settings > Tools > Database > Trino PIPE** for the current project. No SQL Transpiler
 installation is required. The workspace setting defaults off; `-Dtrino.pipes=false`
 is an emergency veto. Changing it reparses open SQL files.
 
@@ -140,8 +187,8 @@ reported on the authored Kotlin; pending analysis withdraws stale classification
 
 Shared SQL/IDE mechanics live in `brikk-sql-intellij-support`. Kotlin recognition
 and contracts come from `brikk-engine-kotlin-intellij-support`. See
-[the verification report](REVIEW-trino-pipes-brikk.md) for the
-current dependency/release state and verification commands.
+[the historical verification report](REVIEW-trino-pipes-brikk.md) for earlier
+integration checks.
 
 ## Credits
 

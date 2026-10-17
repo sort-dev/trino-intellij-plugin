@@ -1,69 +1,65 @@
 package dev.sort.trino.validate
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
+import dev.brikk.house.sql.intellij.pipe.NativeVerdict
+import dev.brikk.house.sql.verify.VerifyError
+import dev.brikk.house.sql.verify.VerifyResult
 import org.junit.Test
+import kotlin.test.*
 
-/**
- * Pure-JVM coverage of the parse authority + position arithmetic — no IDE fixture, no Application.
- * Proves engine truth (Trino-only syntax the PG substrate mis-parses is ACCEPTED; garbage is
- * rejected with a 1-based position) and the statement-offset -> document-offset mapping the
- * annotator relies on, including multi-line statements and out-of-range carets.
- */
 class TrinoStatementValidatorTest {
-
-    // --- parse authority ---
-
-    @Test
-    fun acceptsEverydayTrino() {
-        assertNull(TrinoStatementValidator.parse("SELECT id, count(*) FROM hive.web.users GROUP BY id"))
-        assertNull(TrinoStatementValidator.parse("WITH r AS (SELECT 1 AS n) SELECT n FROM r"))
+    @Test fun acceptsEverydayTrino() {
+        assertSame(VerifyResult.Accepted, TrinoNativeValidation.verify("SELECT id, count(*) FROM hive.web.users GROUP BY id"))
+        assertSame(VerifyResult.Accepted, TrinoNativeValidation.verify("WITH r AS (SELECT 1 AS n) SELECT n FROM r"))
     }
-
-    @Test
-    fun acceptsTrinoOnlySyntaxTheSubstrateCannot() {
-        // The whole point of the engine authority: constructs the PG base mis-parses, Trino accepts.
-        assertNull(TrinoStatementValidator.parse("SELECT filter(ARRAY[1, 2, 3], x -> x > 1)"))
-        assertNull(TrinoStatementValidator.parse("USE hive.web"))
-        assertNull(TrinoStatementValidator.parse("SET SESSION hive.query_max_run_time = '2h'"))
+    @Test fun acceptsTrinoOnlySyntaxTheSubstrateCannot() {
+        for (sql in listOf("SELECT filter(ARRAY[1, 2, 3], x -> x > 1)", "USE hive.web", "SET SESSION hive.query_max_run_time = '2h'")) {
+            assertSame(VerifyResult.Accepted, TrinoNativeValidation.verify(sql))
+        }
     }
-
-    @Test
-    fun flagsGarbageWithOneBasedPosition() {
-        val err = TrinoStatementValidator.parse("SELECT FROM WHERE")
-        assertNotNull("garbage must be flagged", err)
-        assertEquals("Trino lines are 1-based", 1, err!!.line)
-        assertTrue("Trino columns are 1-based (> 0)", err.column > 0)
-        assertTrue("carries the engine's own words: ${err.message}", err.message.isNotBlank())
+    @Test fun flagsGarbageWithOneBasedPosition() {
+        val error = assertIs<VerifyResult.Rejected>(TrinoNativeValidation.verify("SELECT FROM WHERE")).error
+        assertEquals(1, error.line)
+        assertEquals(8, error.column)
+        assertEquals(7, error.offset)
+        assertTrue(error.message.isNotBlank())
     }
-
-    // --- position mapping (statement offset + 1-based line/col -> absolute document offset) ---
-
-    @Test
-    fun mapsColumnOnASingleLine() {
-        // "SELECT FROM WHERE": column 8 (1-based) is the 'F' of FROM at index 7.
-        assertEquals(7, TrinoStatementValidator.offsetOf("SELECT FROM WHERE", 0, 1, 8))
-        // the same statement starting at document offset 200 shifts by exactly 200.
-        assertEquals(207, TrinoStatementValidator.offsetOf("SELECT FROM WHERE", 200, 1, 8))
+    @Test fun mapsColumnOnASingleLine() {
+        val offset = VerifyError.at("SELECT FROM WHERE", "bad", 1, 8).offset!!
+        assertEquals(7, offset)
+        assertEquals(207, 200 + offset)
     }
-
-    @Test
-    fun mapsLineAndColumnAcrossMultipleLines() {
-        val text = "SELECT a\nFROM t\nWHERE AND b"     // line 3 begins at index 16; 'AND' at 22
-        assertEquals(9, TrinoStatementValidator.offsetOf(text, 0, 2, 1))  // right after the first '\n'
-        assertEquals(16, TrinoStatementValidator.offsetOf(text, 0, 3, 1))
-        assertEquals(22, TrinoStatementValidator.offsetOf(text, 0, 3, 7))
-        assertEquals(1022, TrinoStatementValidator.offsetOf(text, 1000, 3, 7))
+    @Test fun mapsLineAndColumnAcrossMultipleLines() {
+        val text = "SELECT a\nFROM t\nWHERE AND b"
+        assertEquals(9, VerifyError.at(text, "bad", 2, 1).offset)
+        assertEquals(16, VerifyError.at(text, "bad", 3, 1).offset)
+        assertEquals(22, VerifyError.at(text, "bad", 3, 7).offset)
+        assertEquals(1022, 1000 + VerifyError.at(text, "bad", 3, 7).offset!!)
     }
-
-    @Test
-    fun clampsCaretBeyondTheStatementText() {
-        // A line / column past the end clamps to the end of the text, never beyond it.
-        assertEquals(3, TrinoStatementValidator.offsetOf("abc", 0, 9, 9))
-        assertEquals(13, TrinoStatementValidator.offsetOf("abc", 10, 1, 100))
-        // line 1, column 1 is always the statement start.
-        assertEquals(50, TrinoStatementValidator.offsetOf("anything", 50, 1, 1))
+    @Test fun positionsBeyondTheStatementAreUnknown() {
+        assertNull(VerifyError.at("abc", "bad", 9, 9).offset)
+        assertNull(VerifyError.at("abc", "bad", 1, 100).offset)
+        assertEquals(50, 50 + VerifyError.at("anything", "bad", 1, 1).offset!!)
+    }
+    @Test fun supplementaryCharactersAndCrLfKeepUtf16Positions() {
+        for (sql in listOf("SELECT '😀' AS emoji FROM t WHERE AND x", "SELECT '😀' AS emoji\r\nFROM t\r\nWHERE AND x")) {
+            val error = assertIs<VerifyResult.Rejected>(TrinoNativeValidation.verify(sql)).error
+            val offset = sql.indexOf("AND")
+            assertEquals(offset, error.offset)
+            assertEquals(sql.take(offset).count { it == '\n' } + 1, error.line)
+            assertEquals(offset - sql.lastIndexOf('\n', offset - 1), error.column)
+        }
+    }
+    @Test fun unverifiedAndUnavailableAreNeverAcceptedOrAnnotated() {
+        for (result in listOf(VerifyResult.Unverified("unsupported channel"), VerifyResult.Unavailable("offline"))) {
+            assertSame(NativeVerdict.Unavailable, result.toNativeVerdict())
+            assertTrue(result.nativeErrors().isEmpty())
+        }
+        assertSame(NativeVerdict.Accepted, VerifyResult.Accepted.toNativeVerdict())
+    }
+    @Test fun rejectionsPreserveErrorsAndBlockNativeExecution() {
+        val errors = listOf(VerifyError.atOffset("SELECT 1", "first", 0, 6), VerifyError("second"))
+        val result = VerifyResult.Rejected(errors)
+        assertEquals(errors, result.nativeErrors())
+        assertEquals("first\nsecond", assertIs<NativeVerdict.Rejected>(result.toNativeVerdict()).message)
     }
 }

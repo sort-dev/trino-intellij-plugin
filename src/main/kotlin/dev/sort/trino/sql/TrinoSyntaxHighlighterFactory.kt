@@ -1,11 +1,5 @@
 package dev.sort.trino.sql
 
-import com.intellij.sql.dialects.base.SqlSyntaxHighlighterFactory
+import dev.brikk.house.sql.intellij.editor.KeywordOverlayHighlighterFactory
 
-/**
- * The platform SQL highlighter for the Trino (Brikk) dialect. Beyond editor coloring, this
- * registration is LOAD-BEARING: the SQL todo/id indexers build their filter lexer from the
- * language's syntax highlighter — without it, ANY file mapped to the dialect crashes the TODO
- * index (PluginException: null from TodoIndex.computeValue; duckdb bisect, 2026-07-21).
- */
-class TrinoSyntaxHighlighterFactory : SqlSyntaxHighlighterFactory.Base(TrinoSqlDialect.INSTANCE)
+class TrinoSyntaxHighlighterFactory : KeywordOverlayHighlighterFactory(TrinoSqlDialect, TRINO_RESERVED_KEYWORDS)

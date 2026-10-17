@@ -6,6 +6,8 @@ import com.intellij.database.util.Casing
 import com.intellij.database.util.TreePattern
 import com.intellij.database.util.TreePatternNode
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import dev.brikk.house.sql.intellij.catalog.CatalogScopes
+import dev.brikk.house.sql.intellij.testing.BackgroundErrors
 
 /**
  * OFFLINE assertions for the introspection-scope patterns the lazy deepening unions into a data
@@ -17,6 +19,20 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
  * schema = [ObjectKind.SCHEMA].
  */
 class TrinoCatalogScopesTest : BasePlatformTestCase() {
+    private lateinit var errors: BackgroundErrors
+
+    override fun setUp() {
+        super.setUp()
+        errors = BackgroundErrors(testRootDisposable)
+    }
+
+    override fun tearDown() {
+        try {
+            errors.assertNone()
+        } finally {
+            super.tearDown()
+        }
+    }
 
     private fun dbGroup(p: TreePattern): TreePatternNode.Group? = p.root?.getGroup(ObjectKind.DATABASE)
 
@@ -27,7 +43,7 @@ class TrinoCatalogScopesTest : BasePlatformTestCase() {
         // Live rule (STAGE2): a selected DATABASE leaf loads that catalog's SCHEMAS (its direct
         // children) and NO tables. A SCHEMA(*) group here would instead select the schemas and pull
         // every one of their tables — catastrophic on a many-thousand-table hive catalog.
-        val p = TrinoCatalogScopes.catalogSchemasScope("hive")
+        val p = CatalogScopes.select(TrinoCatalogProfile.levels, listOf("hive"))
         val hive = childMatching(dbGroup(p), "hive")
         assertNotNull("catalog deepening must name the catalog 'hive'", hive)
         assertFalse("a different catalog must NOT match", dbGroup(p)!!.children.orEmpty().any {
@@ -40,7 +56,7 @@ class TrinoCatalogScopesTest : BasePlatformTestCase() {
     }
 
     fun testSchemaTablesScopeSelectsExactlyOneSchemaUnderCatalog() {
-        val p = TrinoCatalogScopes.schemaTablesScope("hive", "web")
+        val p = CatalogScopes.select(TrinoCatalogProfile.levels, listOf("hive", "web"))
         val hive = childMatching(dbGroup(p), "hive")
         assertNotNull("schema deepening must name the catalog 'hive'", hive)
         val schemaGroup = hive!!.getGroup(ObjectKind.SCHEMA)
@@ -56,7 +72,7 @@ class TrinoCatalogScopesTest : BasePlatformTestCase() {
     }
 
     fun testSchemaTablesScopeWithoutCatalogRootsSchemaGroupDirectly() {
-        val p = TrinoCatalogScopes.schemaTablesScope(null, "web")
+        val p = CatalogScopes.select(listOf(ObjectKind.SCHEMA), listOf("web"))
         assertNull("no catalog was given -> no DATABASE group", dbGroup(p))
         val schemaGroup = p.root?.getGroup(ObjectKind.SCHEMA)
         assertNotNull("the SCHEMA group must be rooted directly", schemaGroup)

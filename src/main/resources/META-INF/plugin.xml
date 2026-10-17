@@ -40,6 +40,14 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>0.4.1</b>
+        <ul>
+            <li>Shared SQL completion, relation resolution and table-function typing, including cleared-model namespace discovery.</li>
+            <li>Restore the Trino icon in data-source pickers and hide empty PIPE editor menus.</li>
+            <li>Find project PIPE settings under Settings &gt; Tools &gt; Database &gt; Trino PIPE.</li>
+            <li>Fix EXPLAIN action registration and service startup.</li>
+            <li>Use released Brikk libraries. Property key/value completion remains disabled.</li>
+        </ul>
         <b>0.3.5</b>
         <ul>
             <li>Fresh dogfood build with a distinct installed version for the next local test pass.</li>
@@ -104,15 +112,28 @@
     </extensions>
     <xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href="/META-INF/trino-pipes.xml" xpointer="xpointer(/idea-plugin/*)"/>
 
+    <extensionPoints>
+        <extensionPoint name="relationFacts" interface="dev.brikk.house.sql.intellij.relation.ExternalRelationFacts" dynamic="true"/>
+        <extensionPoint name="inspectionHostGuard" interface="dev.sort.trino.brikk.TrinoInspectionHostGuard" dynamic="true"/>
+    </extensionPoints>
+
     <extensions defaultExtensionNs="com.intellij">
-        <sql.resolveExtension implementation="dev.sort.trino.brikk.BrikkSqlResolveExtension"/>
-        <sql.inspectionSuppressorDelegate implementation="dev.sort.trino.brikk.BrikkSqlInspectionSuppressor"/>
-        <completion.contributor language="TrinoSQL" implementationClass="dev.sort.trino.pipes.TrinoPipesCompletionContributor" order="first"/>
+        <postStartupActivity implementation="dev.sort.trino.catalog.TrinoExecutionObserverStartup"/>
+        <dynamicActionConfigurationCustomizer implementation="dev.sort.trino.catalog.TrinoTextExplainConfiguration"/>
+        <database.runConsoleAvailable implementation="dev.sort.trino.brikk.TrinoHostRunConsoleVeto"/>
+        <sql.resolveExtension implementation="dev.sort.trino.brikk.TrinoRelationResolveExtension"/>
+        <sql.inspectionSuppressorDelegate implementation="dev.sort.trino.brikk.TrinoRelationInspectionSuppressor"/>
+        <sql.inspectionSuppressorDelegate implementation="dev.sort.trino.sql.TrinoBuiltinInspectionSuppressor"/>
+        <completion.contributor language="TrinoSQL" implementationClass="dev.sort.trino.pipes.TrinoPipesCompletionContributor" order="first, before trino.metadata"/>
+        <completion.contributor language="TrinoSQL" implementationClass="dev.sort.trino.sql.TrinoMetadataCompletionContributor" id="trino.metadata" order="first"/>
+        <completion.contributor language="TrinoSQL" implementationClass="dev.sort.trino.brikk.TrinoRelationCompletionContributor" order="first"/>
         <annotator language="TrinoSQL" implementationClass="dev.sort.trino.pipes.TrinoPipeStageKeywordAnnotator"/>
-        <annotator language="TrinoSQL" implementationClass="dev.sort.trino.brikk.BrikkSqlContractAnnotator"/>
-        <gotoDeclarationHandler implementation="dev.sort.trino.brikk.BrikkSqlGotoDeclarationHandler"/>
+        <annotator language="TrinoSQL" implementationClass="dev.sort.trino.brikk.TrinoRelationAnnotator"/>
+        <annotator language="TrinoSQL" implementationClass="dev.sort.trino.catalog.TrinoReferenceIntrospectAnnotator"/>
+        <gotoDeclarationHandler implementation="dev.sort.trino.brikk.TrinoRelationGotoDeclarationHandler"/>
         <lang.parserDefinition language="TrinoSQL" implementationClass="dev.sort.trino.sql.TrinoParserDefinition"/>
-        <lang.commenter language="TrinoSQL" implementationClass="dev.sort.trino.sql.TrinoCommenter"/>
+        <lang.commenter language="TrinoSQL" implementationClass="com.intellij.database.sql.common.core.psi.impl.support.SqlNestedCommenter"/>
+        <lang.quoteHandler language="TrinoSQL" implementationClass="dev.sort.trino.sql.TrinoQuoteHandler"/>
         <!-- LOAD-BEARING beyond colors: the SQL todo/id indexers derive their filter lexer from
              the language's syntax highlighter; absence crashes the TODO index on our files. -->
         <lang.syntaxHighlighterFactory language="TrinoSQL" implementationClass="dev.sort.trino.sql.TrinoSyntaxHighlighterFactory"/>
@@ -121,6 +142,7 @@
              (display-only; the census scoreboard keeps counting truth; the trino-parser validator
              becomes the real error authority). -->
         <highlightErrorFilter implementation="dev.sort.trino.sql.TrinoHighlightErrorFilter"/>
+        <highlightErrorFilter implementation="dev.sort.trino.brikk.TrinoHostPlaceholderErrorFilter"/>
 <!-- TrinoLexer masks spans as comments / collapses spans to string tokens (census-driven
              token bridge); this annotator repaints ONLY those spans with real word colors. -->
         <annotator language="TrinoSQL" implementationClass="dev.sort.trino.sql.TrinoMaskedSpanRecolorAnnotator"/>
@@ -128,26 +150,35 @@
              483). The highlightErrorFilter above suppresses the substrate's noisy red; THIS supplies
              the truth — Trino's own grammar, version-exact, on any mapped file (no engine, no data
              source needed: the authority is on the classpath, unlike duckdb's driver-jar path). -->
+        <!-- Shared core statement ranges and revision checks; PSI diagnostics remain off. -->
         <externalAnnotator language="TrinoSQL" implementationClass="dev.sort.trino.validate.TrinoErrorAnnotator"/>
-        <!-- Stage-3 function/keyword completion from the bundled catalog (SHOW FUNCTIONS +
-             ReservedIdentifiers). The language attribute IS the scope — the contributor must NOT
-             use a withLanguage(...) pattern (it wouldn't match the completion-position leaf and the
-             provider would go silently dead; duckdb bisect). The SAME contributor also carries the
-             lazy schema-tree deepening trigger (QualifiedPathIntrospectProvider). -->
-        <completion.contributor language="TrinoSQL"
-                                 implementationClass="dev.sort.trino.sql.TrinoCompletionContributor"/>
+        <completion.contributor language="TrinoSQL" order="first"
+                                 implementationClass="dev.sort.trino.catalog.TrinoQualifiedPathIntrospectContributor"/>
         <!-- Banner while a lazy introspection kicked by completion is in flight: the async model
              refresh lands after the current completion pass, so this tells the user to invoke
              completion again once the namespace finishes loading. -->
-        <editorNotificationProvider implementation="dev.sort.trino.catalog.TrinoIntrospectNotifier"/>
+        <editorNotificationProvider implementation="dev.sort.trino.catalog.TrinoIntrospectBannerProvider"/>
     </extensions>
 
+    <projectListeners>
+        <listener class="dev.sort.trino.catalog.TrinoLiveCatalogCleanup"
+                  topic="com.intellij.database.dataSource.DataSourceStorage$Listener"/>
+    </projectListeners>
+    <applicationListeners>
+        <listener class="dev.sort.trino.catalog.TrinoLiveCatalogCleanup"
+                  topic="com.intellij.database.dataSource.DataSourceStorage$Listener"/>
+    </applicationListeners>
+
     <extensions defaultExtensionNs="com.intellij.database">
+        <connectionInterceptor implementation="dev.sort.trino.catalog.TrinoHarvestConnectionInterceptor"/>
         <dbms id="TRINO_BRIKK" instance="dev.sort.trino.TrinoDbms.TRINO_BRIKK"/>
         <!-- Trino speaks ANSI-with-PG-adjacent surface; PG machinery is the family default for
              everything we don't override. The modelFacade completes the facade/dialect/introspector
              agreement (doris ClassCast lesson) — all three sit on the PG family. -->
         <extensionFallback dbms="TRINO_BRIKK" fallbackDbms="POSTGRES"/>
+        <explainPlanProvider dbms="TRINO_BRIKK" implementationClass="dev.sort.trino.TrinoExplainPlanProvider"/>
+        <definitionProvider dbms="TRINO_BRIKK" implementationClass="dev.sort.trino.TrinoDefinitionProvider"/>
+        <dialect dbms="TRINO_BRIKK" implementationClass="dev.sort.trino.TrinoDatabaseDialect"/>
         <modelFacade dbms="TRINO_BRIKK" implementationClass="dev.sort.trino.TrinoModelFacade"/>
         <!-- THE LANDMINE FIX (truth battery): dbms-exact registration shadows the POSTGRES
              fallback on the introspector EP. Trino reports major 483, which CLEARS the PG native

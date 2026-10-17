@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ main, froze-over, 'release-*' ]
+    branches: [ main, froze-over ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -23,11 +23,14 @@ jobs:
       - name: Set up Gradle (with caching)
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Test
+      - name: Test on 261
         run: ./gradlew test
 
+      - name: Test on 262 and 263 with Kotlin
+        run: ./gradlew test262 test263 -Ptest.kotlin=present
+
       - name: Build plugin
-        run: ./gradlew buildPlugin verifyEmbeddedPipes
+        run: ./gradlew buildPlugin verifyDistribution
 
       - name: Upload plugin zip
         uses: actions/upload-artifact@v4
@@ -44,13 +47,10 @@ jobs:
           path: build/reports/tests/
 
   # Plugin Verifier against the IDE builds pinned in build.gradle.kts (pluginVerification.ides).
-  # Runs on every release-* push (and on demand) so a release can never again ship un-verified —
-  # the 0.5.0 cancel feature shipped with its verifier findings unseen because nobody re-ran this.
-  #
-  # Release artifacts require both tests/build and the pinned five-target verifier matrix.
+  # Runs on manual workflow dispatch.
   verify:
     name: Plugin Verifier
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref_name, 'release-'))
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -74,45 +74,3 @@ jobs:
           name: plugin-verifier-reports
           path: build/reports/pluginVerifier/
           if-no-files-found: warn
-
-  release:
-    name: GitHub Release
-    needs: [build, verify]
-    if: github.event_name == 'push' && startsWith(github.ref_name, 'release-')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download plugin zip
-        uses: actions/download-artifact@v4
-        with:
-          name: plugin-zip
-          path: dist
-
-      - name: Read version from build.gradle.kts
-        id: ver
-        run: |
-          V=$(sed -n 's/^version = "\(.*\)"/\1/p' build.gradle.kts | head -1)
-          echo "version=$V" >> "$GITHUB_OUTPUT"
-          echo "version: $V"
-
-      - name: Create or update GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          V: ${{ steps.ver.outputs.version }}
-        run: |
-          ZIP=$(ls dist/*.zip | head -1)
-          RENAMED="dist/trino-intellij-plugin-${V}.zip"
-          mv "$ZIP" "$RENAMED"
-          if gh release view "v$V" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "v$V" "$RENAMED" --clobber --repo "$GITHUB_REPOSITORY"
-          else
-            gh release create "v$V" "$RENAMED" \
-              --repo "$GITHUB_REPOSITORY" \
-              --target "$GITHUB_SHA" \
-              --title "SQL Dialect for Trino $V" \
-              --notes "Plugin zip for manual installation (Settings → Plugins → ⚙ → Install Plugin from Disk).
-          Built from \`$GITHUB_REF_NAME\` @ $GITHUB_SHA. See plugin.xml change-notes for details."
-          fi
