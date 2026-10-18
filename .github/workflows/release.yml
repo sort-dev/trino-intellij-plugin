@@ -1,6 +1,7 @@
 name: Release plugin ZIP
 
 on:
+  workflow_dispatch:
   push:
     branches: ['release/**']
 

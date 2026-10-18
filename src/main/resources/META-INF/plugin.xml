@@ -40,6 +40,12 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>0.4.2</b>
+        <ul>
+            <li>Update to common SQL IntelliJ support and the optional JDBC adapter 0.2.1.</li>
+            <li>Remove redundant default-method forwarding while preserving generic JDBC introspection.</li>
+            <li>Keep the existing Trino editor, catalog and PIPE behavior.</li>
+        </ul>
         <b>0.4.1</b>
         <ul>
             <li>Shared SQL completion, relation resolution and table-function typing, including cleared-model namespace discovery.</li>

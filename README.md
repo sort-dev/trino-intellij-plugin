@@ -72,11 +72,11 @@ playbook possible: the editor's error authority IS the engine's grammar, bundled
 
 ## Building from source
 
-The next release is **0.4.1**, which upgrades the delivered `0.4.0-dev` builds.
+The next release is **0.4.2**, which upgrades the earlier `0.4.1` and development builds.
 
 ```bash
 ./gradlew buildPlugin   # → build/distributions/trino-intellij-plugin-<dev-version>.zip
-./gradlew buildPlugin -Prelease=true   # → build/distributions/trino-intellij-plugin-0.4.1.zip
+./gradlew buildPlugin -Prelease=true   # → build/distributions/trino-intellij-plugin-0.4.2.zip
 ./gradlew test          # boot + driver-facts + parser-authority (census scoreboard arrives with Stage 1)
 ```
 
@@ -97,9 +97,9 @@ Maven Central: `brikk-sql-jvm`, `brikk-sql-metadata-jvm`, `brikk-sql-verify-api`
 **0.3.0**. There are no snapshot overrides or Maven Local substitutes. The ZIP embeds
 the runtime helpers, never test-support, so installation requires no Maven setup.
 
-The 0.2.1 common support, optional JDBC adapter and test-kit coordinates are currently local candidates;
-they need Central publication before default builds. Explicit local validation selects those candidates
-without a snapshot fallback. Core0.20.0 and Kotlin helper0.3.0 are already public. `-Prelease=true` uses the base version
+Common support, the optional JDBC adapter and test kit 0.2.1 are published on Maven Central,
+alongside core 0.20.0 and Kotlin helper 0.3.0. Normal builds need no local repository override.
+`-Prelease=true` uses the base version
 unchanged and makes `buildPlugin` run the shared `verifyRelease` dependency guard.
 Property key/value completion remains disabled.
 
@@ -109,8 +109,11 @@ Commit release preparation to `main`, then create `release/<version>` from that 
 The shared workflow rejects a commit absent from main, builds with `-Prelease=true`, and runs API
 verification on IntelliJ 262 and 263. Only exact owner-confirmed internal usages in
 `api-usage-approvals.txt` are accepted; new call sites block the GitHub release. Full reports are retained.
-Compatible alone is not Marketplace approval. The owner handles Marketplace uploads. Version 0.4.1
-was withdrawn; its tag and local ZIPs are audit evidence, not release-ready artifacts.
+Compatible alone is not Marketplace approval. The owner handles Marketplace uploads. GitHub release
+0.4.1 was withdrawn; its tag and local ZIPs are historical audit evidence.
+
+Manual dispatch on `release/<version>` runs the same guarded workflow. Use
+`gh workflow run release.yml --ref release/<version>` if `[skip ci]` skipped the push trigger.
 
 Normal CI keeps its main/froze-over, pull-request and manual triggers and existing tests.
 Its manual verifier remains available; release branches run their own strict API verification.
