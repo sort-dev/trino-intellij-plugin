@@ -113,6 +113,7 @@
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.database</depends>
     <depends optional="true" config-file="trino-kotlin.xml">org.jetbrains.kotlin</depends>
+    <depends optional="true" config-file="trino-bsql.xml">dev.sort.sql-transpiler-intellij-plugin</depends>
     <extensions defaultExtensionNs="org.jetbrains.kotlin">
         <supportsKotlinPluginMode supportsK2="true" supportsK1="false"/>
     </extensions>

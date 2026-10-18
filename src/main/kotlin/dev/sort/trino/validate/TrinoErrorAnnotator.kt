@@ -28,7 +28,8 @@ class TrinoErrorAnnotator : NativeErrorAnnotator(TrinoNativeErrorProfile)
 
 object TrinoNativeErrorProfile : NativeErrorProfile {
     override val language get() = TrinoSqlDialect
-    override val injectionHosts get() = setOfNotNull(Language.findLanguageByID("kotlin"))
+    // Kotlin strings, and blocks of SQL Transpiler's polyglot .bsql files.
+    override val injectionHosts get() = setOfNotNull(Language.findLanguageByID("kotlin"), Language.findLanguageByID("BrikkSQL"))
     override val dialect = "trino"
     override val label = "Trino"
     override val hostSql get() = TrinoHostSql
