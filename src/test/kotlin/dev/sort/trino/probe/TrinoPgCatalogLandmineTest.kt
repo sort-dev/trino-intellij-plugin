@@ -81,7 +81,7 @@ class TrinoPgCatalogLandmineTest {
         }
         println(report)
         // If ANY of these ever start resolving, the PG introspector might partially run — re-open the
-        // decision in REPORT-truth-tree.md.
+        // decision in dev-docs/REPORT-truth-tree.md.
         assertTrue(
             "pg_catalog surface unexpectedly present on Trino: $present — the PG introspector might " +
                 "partially run; revisit the introspector decision",

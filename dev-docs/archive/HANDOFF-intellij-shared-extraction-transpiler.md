@@ -4,7 +4,7 @@ Your current bug cleanup remains independent. No Transpiler source, build or
 installed artifact was changed by the Trino work.
 
 Published on Central: `dev.brikk.house:brikk-sql-intellij-support:0.1.0` and matching
-SQL core/metadata `0.19.0`. See [the release report](REVIEW-trino-pipes-brikk.md)
+SQL core/metadata `0.19.0`. See [the release report](../REVIEW-trino-pipes-brikk.md)
 for actual publication status and verification. Source worktree:
 `/home/jayson/DEV/brikk/brikk-sql-worktrees/intellij-support`.
 

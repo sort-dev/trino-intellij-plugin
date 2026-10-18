@@ -6,7 +6,7 @@ The 0.3.2 dogfood checkout and ZIP were left intact. DuckDB is the next proposed
 consumer after Trino; perform this as a separate backport with its own artifact gates.
 
 Published releases are `brikk-sql-intellij-support:0.1.0` and SQL core/metadata `0.19.0`,
-all under `dev.brikk.house`. See [release evidence](REVIEW-trino-pipes-brikk.md).
+all under `dev.brikk.house`. See [release evidence](../REVIEW-trino-pipes-brikk.md).
 Source: `/home/jayson/DEV/brikk/brikk-sql-worktrees/intellij-support`, initially
 `d073725` and `a7af8fd`, with release notes in `b865a84`; all are on brikk-sql main.
 The existing Kotlin helper remains a separate dependency.

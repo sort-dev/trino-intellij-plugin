@@ -9,7 +9,7 @@ This is a separate backport, not an instruction to replace the user's installed 
 
 Published on Maven Central: `dev.brikk.house:brikk-sql-intellij-support:0.1.0` and
 core/metadata `0.19.0`. Release verification/status is recorded in
-[the Trino report](REVIEW-trino-pipes-brikk.md).
+[the Trino report](../REVIEW-trino-pipes-brikk.md).
 
 Source worktree: `/home/jayson/DEV/brikk/brikk-sql-worktrees/intellij-support`.
 Commits: `d073725`, `a7af8fd`, release notes `b865a84`, now also on brikk-sql main.

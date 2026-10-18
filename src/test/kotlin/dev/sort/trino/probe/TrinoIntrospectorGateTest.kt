@@ -26,7 +26,7 @@ import dev.sort.trino.TrinoDbms
  * The DuckDB sibling was SAVED by this gate (DuckDB reports major 1 < 9 -> native rejected -> generic
  * JDBC introspector runs). Trino reports major 483 >= 9, so the gate PASSES and the PG-native
  * introspector is SELECTED for TRINO_BRIKK unless something forces the generic path. That is the
- * landmine — pinned below and analysed in REPORT-truth-tree.md.
+ * landmine — pinned below and analysed in dev-docs/REPORT-truth-tree.md.
  */
 class TrinoIntrospectorGateTest : BasePlatformTestCase() {
 
@@ -81,7 +81,7 @@ class TrinoIntrospectorGateTest : BasePlatformTestCase() {
     fun testTrinoBrikkSelectsNativePgIntrospectorAtServerVersion() {
         // HISTORY: pre-fix this test pinned the LANDMINE (at483 == true → the PG native
         // introspector selected for TRINO_BRIKK, whose first pg_catalog query Trino cannot
-        // answer — see TrinoPgCatalogLandmineTest + REPORT-truth-tree.md). TrinoIntrospectorGate
+        // answer — see TrinoPgCatalogLandmineTest + dev-docs/REPORT-truth-tree.md). TrinoIntrospectorGate
         // now vetoes native selection at EVERY version; the landmine mechanics remain pinned
         // against POSTGRES itself below (the fallback that would have been chosen).
         val at483 = supportedByNativeIntrospector(TrinoDbms.TRINO_BRIKK, version(483))

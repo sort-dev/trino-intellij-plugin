@@ -1,5 +1,12 @@
 # Agent Guide
 
+## Documentation layout
+
+- `README.md` is **user-facing only** — no build instructions, no internals.
+- Contributor/dev docs live in `dev-docs/` (build & release info: `dev-docs/CONTRIBUTING.md`).
+- Historical cross-repo handoffs/replies live in `dev-docs/archive/`.
+- `LICENSE` and `THIRD_PARTY_NOTICES.md` stay at root — the build packages them.
+
 ## Commit identity (Buzz agents)
 
 When you (a Buzz agent) commit on someone's behalf, attribute the commit to the

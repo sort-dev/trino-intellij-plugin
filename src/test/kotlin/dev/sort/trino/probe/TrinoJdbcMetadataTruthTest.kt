@@ -17,7 +17,7 @@ import java.sql.ResultSet
  * [DatabaseMetaData]. This is the surface the platform's generic JDBC introspector reads for a
  * TRINO_BRIKK data source (see [TrinoIntrospectorGateTest] + [TrinoPgCatalogLandmineTest] for why the
  * generic introspector is the ONLY safe engine here). Facts, not aspirations: where the driver returns
- * empty by design, the behavior is pinned with a `// GAP:` note and recorded in REPORT-truth-tree.md.
+ * empty by design, the behavior is pinned with a `// GAP:` note and recorded in dev-docs/REPORT-truth-tree.md.
  *
  * Multi-catalog is exercised for real (Trino's connectors ARE catalogs): tpch.tiny + a table created
  * over the wire in the `memory` connector, dropped in tearDown.
@@ -130,8 +130,8 @@ class TrinoJdbcMetadataTruthTest {
         println("=== getPrimaryKeys=${pk.size} getImportedKeys=${fk.size} (tpch.tiny.orders) ===")
         // GAP (by engine design, not a driver bug): Trino models no primary/foreign keys, so the tree
         // shows none. Nothing to enrich here — it is a property of the engine.
-        assertTrue("Trino unexpectedly reported a primary key — revisit REPORT-truth-tree.md", pk.isEmpty())
-        assertTrue("Trino unexpectedly reported a foreign key — revisit REPORT-truth-tree.md", fk.isEmpty())
+        assertTrue("Trino unexpectedly reported a primary key — revisit dev-docs/REPORT-truth-tree.md", pk.isEmpty())
+        assertTrue("Trino unexpectedly reported a foreign key — revisit dev-docs/REPORT-truth-tree.md", fk.isEmpty())
     }
 
     @Test

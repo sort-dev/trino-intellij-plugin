@@ -3,7 +3,7 @@
 Use `dev.brikk.house:brikk-sql-intellij-support:0.1.1` for the shared
 `dev.brikk.house.sql.intellij.SqlColumnCompletion` formatter. Trino is adopting
 the same rendering as DuckDB. Version 0.1.1 is published on Central and bundled
-in Trino 0.3.4. Release and consumer evidence is in `REVIEW-trino-pipes-brikk.md`.
+in Trino 0.3.4. Release and consumer evidence is in `../REVIEW-trino-pipes-brikk.md`.
 
 Source is in `brikk-sql-intellij-support/src/dev.brikk.house.sql.intellij/SqlColumnCompletion.kt`.
 The helper accepts copied strings and nullable Boolean facts; no Kotlin IDE or

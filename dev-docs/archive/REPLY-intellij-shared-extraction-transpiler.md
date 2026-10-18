@@ -10,7 +10,7 @@ feedback, not authorization to implement or publish. SQL Transpiler is reviewer-
 for H1-H6; the Trino agent owns the extraction and proposed peer ports.
 
 Use `ST-X1` through `ST-X8` to refer to this feedback. Existing `ST-B...` identifiers
-refer to [the SQL Transpiler review](../sql-transpiler-intellij-plugin/REVIEW.md).
+refer to [the SQL Transpiler review](../../../sql-transpiler-intellij-plugin/REVIEW.md).
 
 ## ST-X1: Existing core APIs and the actual gaps
 

@@ -28,8 +28,8 @@ against the released helper. The candidate had already passed all five IDE
 verifier targets and the full consumer test suite.
 
 [Helper release](https://github.com/brikk/brikk-sql/actions/runs/38113629918).
-Migration notes: [DuckDB](HANDOFF-shared-column-completion-duckdb.md) and
-[Doris](HANDOFF-shared-column-completion-doris.md). SQL Transpiler has no current
+Migration notes: [DuckDB](archive/HANDOFF-shared-column-completion-duckdb.md) and
+[Doris](archive/HANDOFF-shared-column-completion-doris.md). SQL Transpiler has no current
 column-completion contributor and needs no presentation migration.
 
 ## Local install build: 0.3.3 candidate

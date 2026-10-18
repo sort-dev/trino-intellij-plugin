@@ -6,7 +6,7 @@ no presentation migration for this change.
 
 Trino 0.3.4 uses `SqlColumnCompletion` from the published SQL IntelliJ support
 0.1.1 release, using DuckDB's presentation as the reference. The Central artifact
-and consumer checks are recorded in [the Trino report](REVIEW-trino-pipes-brikk.md).
+and consumer checks are recorded in [the Trino report](../REVIEW-trino-pipes-brikk.md).
 
 Source: `brikk-sql-intellij-support/src/dev.brikk.house.sql.intellij/SqlColumnCompletion.kt`
 in `/home/jayson/DEV/brikk/brikk-sql-worktrees/intellij-support`.
