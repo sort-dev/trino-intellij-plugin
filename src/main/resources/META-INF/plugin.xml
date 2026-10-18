@@ -37,6 +37,9 @@
         <p><i>This is an independent, community plugin developed by Sortdev SRL, not affiliated with
         the Trino Software Foundation. "Trino" is a trademark of the Trino Software Foundation, used
         only to identify the query engine this plugin supports.</i></p>
+
+        <p>Source, issues and documentation:
+        <a href="https://github.com/sort-dev/trino-intellij-plugin">github.com/sort-dev/trino-intellij-plugin</a></p>
     ]]></description>
 
     <change-notes><![CDATA[
