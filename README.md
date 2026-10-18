@@ -89,16 +89,17 @@ the same 261-compiled classes. The generated-shape test runs on `test262` with
 `-Ptest.ide262=/path/to/IDEA-262.9437.185` and
 `-Ptest.brikkCompilerPlugin=/path/to/the/reviewed/compiler-plugin.jar`.
 
-The shared catalog unconditionally selects released `dev.brikk.house` libraries from
+The shared catalog selects formal `dev.brikk.house` coordinates from
 Maven Central: `brikk-sql-jvm`, `brikk-sql-metadata-jvm`, `brikk-sql-verify-api` and
 `brikk-sql-verify-trino` **0.20.0**; `brikk-sql-intellij-support` and test-only
-`brikk-sql-intellij-test-support` **0.2.0**; `brikk-engine-kotlin-intellij-support`
+`brikk-sql-intellij-test-support` **0.2.1**, with the optional `brikk-sql-intellij-jdbc-support` **0.2.1**;
+`brikk-engine-kotlin-intellij-support`
 **0.3.0**. There are no snapshot overrides or Maven Local substitutes. The ZIP embeds
 the runtime helpers, never test-support, so installation requires no Maven setup.
 
-Release prerequisites: the owner must publish SQL/core/metadata/verification and
-support/test-support to Maven Central first, then the Kotlin helper. Formal compilation,
-tests and packaging require those publications. `-Prelease=true` uses the base version
+The 0.2.1 common support, optional JDBC adapter and test-kit coordinates are currently local candidates;
+they need Central publication before default builds. Explicit local validation selects those candidates
+without a snapshot fallback. Core0.20.0 and Kotlin helper0.3.0 are already public. `-Prelease=true` uses the base version
 unchanged and makes `buildPlugin` run the shared `verifyRelease` dependency guard.
 Property key/value completion remains disabled.
 

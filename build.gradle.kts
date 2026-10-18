@@ -16,6 +16,7 @@ sqlDialectPlugin {
             "brikk-sql-verify-api-${brikk.sql.verify.get()}.jar",
             "brikk-sql-verify-trino-${brikk.sql.verify.get()}.jar",
             "brikk-sql-intellij-support-${brikk.sql.intellij.support.get()}.jar",
+            "brikk-sql-intellij-jdbc-support-${brikk.sql.intellij.support.get()}.jar",
             "brikk-engine-kotlin-intellij-support-${brikk.engine.kotlin.intellij.support.get()}.jar",
             "trino-parser-${trino.get()}.jar", "trino-grammar-${trino.get()}.jar",
             "antlr4-runtime-${antlr.get()}.jar",
@@ -30,6 +31,7 @@ sqlDialectPlugin {
 dependencies {
     implementation(libs.brikk.sql.jvm)
     implementation(libs.brikk.sql.intellij.support)
+    implementation(libs.brikk.sql.intellij.jdbc.support)
     implementation(libs.brikk.engine.kotlin.intellij.support)
     implementation("dev.brikk.house:brikk-sql-verify-trino:${libs.versions.brikk.sql.verify.get()}")
     testImplementation(libs.brikk.sql.intellij.test.support)
