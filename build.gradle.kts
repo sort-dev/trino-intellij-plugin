@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "dev.sort.trino"
-version = "0.4.2"
+version = "0.4.3"
 
 sqlDialectPlugin {
     additionalBundledPlugins = listOf("Git4Idea")
