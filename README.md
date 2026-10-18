@@ -1,71 +1,79 @@
-# SQL Dialect for Trino
+# Trino support for DataGrip & IntelliJ IDEA
 
-A full-featured **Trino SQL dialect** for DataGrip and IntelliJ-family IDEs — validated by
-**Trino's own parser** (io.trino:trino-parser, bundled, currently version **483**), so editor
-errors and reporting are correct.
+A plugin that adds a real [Trino](https://trino.io) SQL dialect to DataGrip and IntelliJ IDEA
+Ultimate. It checks your SQL with Trino's own parser, gets statement boundaries right, completes
+Trino functions, and loads big catalogs one level at a time.
 
-> **In the IDE, use the `Trino (sort.dev)` dialect.**
-
-Part of our SQL-tooling family alongside:
-
-* [**Trino - Doris connector** allowing Trino to access your Doris data](https://github.com/brikk/trino-doris-connector)
-* [**Trino native DuckLake Catalog** with full Read/Write support](https://github.com/brikk/ducklake-integrations/tree/main/jvm/trino-ducklake)
-* [**Trino Duckbridge** - remote access to DuckDB via Quack](https://github.com/brikk/duckbridge)
-* [**SQL Dialect Transpiler** for various datalake dialects and DataGrip & Jetbrains IDE's](https://plugins.jetbrains.com/plugin/32900-sql-transpiler)
-* [**DuckDB SQL** (embedded+Quack) for DataGrip & Jetbrains IDE's](https://plugins.jetbrains.com/plugin/33098-sql-dialect-for-duckdb-embedded--quack-)
-* [**Doris SQL Dialect** for DataGrip & Jetbrains IDE's](https://plugins.jetbrains.com/plugin/32777-sql-dialect-for-apache-doris)
-* [**brikk-house** - Data engineering platform](https://github.com/brikk/brikk-house) (coming soon)
+> [!IMPORTANT]
+> **Not affiliated with Trino.** This is an independent plugin by Sortdev SRL. It is not developed,
+> endorsed or sponsored by the Trino Software Foundation. "Trino" is a trademark of the Trino
+> Software Foundation, used here only to name the query engine this plugin works with.
 
 ## Why
 
-Stock IDEs treat Trino/Presto/Athena as *generic* data sources with the Generic SQL editor:
-lambdas, `TABLE()` function arguments, `MATCH_RECOGNIZE`, `SHOW`/`USE`/session statements and
-catalog-qualified DDL red-flag or break statement boundaries. This plugin bundles the engine's
-own grammar, so the editor's error authority IS the engine's.
+Out of the box, the IDE treats Trino, Presto and Athena as generic data sources with a generic SQL
+editor. Lambdas, `TABLE()` arguments, `MATCH_RECOGNIZE`, `SHOW`/`USE`/session statements and
+catalog-qualified DDL show false errors or break statement boundaries. This plugin bundles Trino's
+own parser, so the errors you see are the ones Trino would report.
 
-## What it does
+## Features
 
-- **Correct statement & run-block boundaries** across the Trino statement surface — including
-  SQL routines (`CREATE FUNCTION ... BEGIN ... END` with inner semicolons), `MATCH_RECOGNIZE`,
-  `PIVOT`, JSON clause functions, `GRANT`/`DENY`, branch DDL, prepared statements.
-- **Engine-exact error checking with zero setup**: every statement is validated by the bundled
-  **trino-parser 483**, with squiggles at the engine's exact line/column and the engine's own
-  messages. No data source, no server, no configuration needed.
-- **Function completion**: 442 functions harvested live from Trino 483 `SHOW FUNCTIONS`
-  (scalar / aggregate / window / table, kind icons, return-type hints) + 83 reserved words.
-- **A working schema tree**: connectors appear as catalogs (tpch, memory, ...).
-- **Completion that fills the tree in as you type**: catalogs list on connect; drilling into a
-  catalog or schema (`hive.`, `hive.web.`) introspects just that namespace, one level at a time —
-  so a `hive`/`iceberg` catalog with thousands of tables is never bulk-loaded.
-- **Query cancel that works**: verified client- AND server-side — a cancelled query reaches
-  FAILED in `system.runtime.queries`, not a silent client-only cancel.
+- **Correct statement boundaries** across Trino SQL, including SQL routines
+  (`CREATE FUNCTION … BEGIN … END` with semicolons inside), `MATCH_RECOGNIZE`, `PIVOT`, JSON
+  functions, `GRANT`/`DENY`, branch DDL and prepared statements.
+- **Trino's own error checking.** The bundled Trino 483 parser checks every statement and
+  underlines errors at the exact line and column, with Trino's own messages. This works without a
+  data source or server.
+- **Function completion** for 442 Trino functions (scalar, aggregate, window and table), with
+  return types, plus 83 reserved words.
+- **A working database tree.** Connectors show up as catalogs (`tpch`, `memory`, …).
+- **Completion that loads as you type.** Catalogs list on connect. Typing `hive.` or `hive.web.`
+  loads just that catalog or schema, so a catalog with thousands of tables never loads all at once.
+- **Query cancel that works.** Stop cancels the query on the server, not just in the IDE. A
+  cancelled query shows as FAILED in `system.runtime.queries`.
+- **Trino PIPE (optional).** Write pipe-syntax queries and run them on Trino. See
+  [Trino PIPE](#trino-pipe).
 
-## SQL coverage — measured, not claimed
+All 490 statements in a test set taken from Trino's own repository (150 syntax families) parse
+cleanly. The set is rebuilt for each Trino version, so coverage is re-checked on every upgrade.
 
-Coverage is scored against a census harvested from **Trino's own repository at tag 483**
-(product tests, documentation SQL, parser tests — every statement pre-graded valid by the
-bundled trino-parser): **150/150 syntax families / 490 statements parse clean (100%), zero
-degraded shapes**. The census regenerates mechanically per engine bump, so coverage is
-re-proven per Trino version, not asserted once.
+## Requirements
 
-## Connecting (important — Trino auth model)
+- DataGrip or IntelliJ IDEA Ultimate, **2026.1 to 2026.3**.
+- A Trino server for the database tree, completion from your catalogs, and running queries. Error
+  checking works without one.
 
-- **`default` connection type (no TLS)** — Trino refuses username/password auth without SSL, so
-  the **User field feeds `sessionUser=`** (your session identity) and the **Password field must
-  stay empty**. Port 8080.
-- **`SSL` connection type** — port **8443** (Trino's HTTPS default). Turn on TLS from the
-  **SSH/SSL tab** (check *Use SSL*; for a private CA, add the cert file there) — User & Password
-  auth then works over the encrypted connection.
-- **Catalog & schema are not part of the connection** — the data source is just host + port +
-  auth. Pick catalogs in your SQL (`USE catalog.schema`, fully-qualified names) or the Schemas tab.
-- **Database tree**: comes from JDBC metadata via the generic introspector (the plugin routes
-  Trino data sources there automatically); if a data source was created before the plugin was
-  installed, tick **Use JDBC-based introspector** in its Options tab.
+## Install
 
-## Built-in PIPE queries
+**From the JetBrains Marketplace (recommended).** Open **Settings → Plugins → Marketplace**, search
+for *SQL Dialect for Trino*, install it and restart the IDE.
 
-Enable **Settings > Tools > Database > Trino PIPE** for the current project. No SQL Transpiler
-installation is required. The setting defaults off; changing it reparses open SQL files.
+**From a file.** Download the zip from the
+[Releases](https://github.com/sort-dev/trino-intellij-plugin/releases) page, then use
+**Settings → Plugins → ⚙ → Install Plugin from Disk…** and restart.
+
+## Getting started
+
+1. Add a Trino data source and connect.
+2. Use the **Trino (sort.dev)** dialect for your consoles and `.sql` files.
+3. If the data source existed before you installed the plugin, tick **Use JDBC-based
+   introspector** in its **Options** tab so the database tree loads.
+
+## Connecting
+
+Trino's login rules depend on whether the connection uses TLS.
+
+- **Without TLS** (the `default` connection type, port 8080), Trino refuses passwords. The **User**
+  field sets your session user and the **Password** field must stay empty.
+- **With TLS** (the `SSL` connection type, port 8443), tick **Use SSL** in the **SSH/SSL** tab. Add
+  your certificate file there if you use a private CA. User and password login then works.
+- The data source holds only host, port and login. Pick catalogs in your SQL (`USE catalog.schema`
+  or fully qualified names) or in the **Schemas** tab.
+
+## Trino PIPE
+
+Write queries in [pipe syntax](https://cloud.google.com/bigquery/docs/pipe-syntax-guide) and run
+them on Trino.
 
 ```sql
 FROM tpch.tiny.orders
@@ -75,26 +83,49 @@ FROM tpch.tiny.orders
 |> LIMIT 10
 ```
 
-Normal Execute lowers PIPE to Trino SQL through the usual console. Selection, script execution,
-parameters, result tabs and console ownership are preserved. Every selected PIPE is validated
-before the first request; unsupported/lossy translation and invalid generated SQL stop execution.
+When you run it, the plugin converts the pipe query to plain Trino SQL and sends that through the
+normal console. Selections, scripts, parameters and result tabs work as usual.
 
-Alt+Enter or the **Trino PIPE** context menu provides generated-SQL preview and
-run-to-caret-stage. Stage keywords and known prior-stage columns complete. Run-to-stage selects
-top-level stages; a caret inside a nested pipeline is refused rather than silently running later
-inner stages. Normal Execute lowers nested pipelines. Console server errors are shown against
-the generated SQL.
+**Turn it on** in **Settings → Tools → Database → Trino PIPE**. It's off by default and is set per
+project. Open SQL files update right away.
 
-## Credits
+What you get:
 
-- **[Trino](https://trino.io)** — the query engine this plugin exists for, and the publisher of
-  the parser it bundles. We are an independent project: not affiliated with, and not endorsed by,
-  the Trino Software Foundation. "Trino" is their trademark, used only to identify the engine.
-- Full third-party attributions (trino-parser, StarRocks-lineage parsing techniques):
-  THIRD_PARTY_NOTICES.md.
+- Completion for stage keywords and for the columns coming from earlier stages.
+- <kbd>Alt</kbd>+<kbd>Enter</kbd> or right-click → **Trino PIPE** to preview the generated SQL or
+  run the pipeline up to the stage at your cursor.
+- The plugin checks every pipe query before sending anything. If the conversion isn't supported,
+  would change the meaning, or produces invalid SQL, nothing runs.
+
+## Known limitations
+
+- Run-to-stage works on top-level stages only. With the cursor inside a nested pipeline, the
+  plugin refuses instead of running the wrong stages. Normal Execute handles nested pipelines.
+- Server errors for pipe queries point at the generated SQL, not your pipe query.
+
+## Related plugins and tools
+
+- [Apache Doris SQL](https://plugins.jetbrains.com/plugin/32777-sql-dialect-for-apache-doris)
+  dialect for JetBrains IDEs.
+- [ClickHouse SQL](https://github.com/sort-dev/clickhouse-intellij-plugin) dialect for JetBrains
+  IDEs.
+- [DuckDB SQL](https://plugins.jetbrains.com/plugin/33098-sql-dialect-for-duckdb-embedded--quack-)
+  dialect for JetBrains IDEs, for embedded DuckDB and Quack servers.
+- [SQL Transpiler](https://plugins.jetbrains.com/plugin/32900-sql-transpiler) converts SQL between
+  dialects in JetBrains IDEs. You don't need it for Trino PIPE.
+- [Trino Doris connector](https://github.com/brikk/trino-doris-connector) lets Trino query Doris.
+- [Trino DuckLake catalog](https://github.com/brikk/ducklake-integrations/tree/main/jvm/trino-ducklake)
+  with read and write support.
+- [Trino Duckbridge](https://github.com/brikk/duckbridge) gives Trino remote access to DuckDB.
+
+## Feedback
+
+Found a bug or SQL the plugin gets wrong?
+[Open an issue](https://github.com/sort-dev/trino-intellij-plugin/issues). A small, anonymized SQL
+sample helps a lot. Want to build or change the plugin? See
+[dev-docs/CONTRIBUTING.md](dev-docs/CONTRIBUTING.md).
 
 ## License
 
-Apache-2.0. Independent community plugin by Sortdev SRL.
-
-Building from source and contributing: [dev-docs/CONTRIBUTING.md](dev-docs/CONTRIBUTING.md).
+Apache License 2.0, see [LICENSE](LICENSE). Copyright 2026 Sortdev SRL. Bundled third-party parts
+are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
