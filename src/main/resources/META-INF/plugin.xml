@@ -43,6 +43,10 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>0.4.4</b>
+        <ul>
+            <li>SQL IntelliJ support 0.2.3: no deprecated, scheduled-for-removal or experimental platform calls that have stable equivalents; no behavior changes.</li>
+        </ul>
         <b>0.4.3</b>
         <ul>
             <li>Engine errors for this dialect's blocks in SQL Transpiler <code>.bsql</code> scratches, and its completion and catalog features resolve against the block's own <code>using=</code> connection (SQL IntelliJ support 0.2.2).</li>

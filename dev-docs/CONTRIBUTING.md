@@ -5,11 +5,11 @@ Build and release notes for contributors. User documentation lives in the
 
 ## Building from source
 
-The next release is **0.4.3**, which upgrades the earlier `0.4.2` and development builds.
+The next release is **0.4.4**, which upgrades the earlier `0.4.3` and development builds.
 
 ```bash
 ./gradlew buildPlugin   # → build/distributions/trino-intellij-plugin-<dev-version>.zip
-./gradlew buildPlugin -Prelease=true   # → build/distributions/trino-intellij-plugin-0.4.3.zip
+./gradlew buildPlugin -Prelease=true   # → build/distributions/trino-intellij-plugin-0.4.4.zip
 ./gradlew test          # boot + driver-facts + parser-authority (census scoreboard arrives with Stage 1)
 ```
 
@@ -27,7 +27,7 @@ the same 261-compiled classes. The generated-shape test runs on `test262` with
 The shared catalog selects formal `dev.brikk.house` coordinates from
 Maven Central: `brikk-sql-jvm`, `brikk-sql-metadata-jvm`, `brikk-sql-verify-api` and
 `brikk-sql-verify-trino` **0.20.0**; `brikk-sql-intellij-support` and test-only
-`brikk-sql-intellij-test-support` **0.2.2**, with the optional `brikk-sql-intellij-jdbc-support` **0.2.2**;
+`brikk-sql-intellij-test-support` **0.2.3**, with the optional `brikk-sql-intellij-jdbc-support` **0.2.3**;
 `brikk-engine-kotlin-intellij-support` **0.3.0**. There are no snapshot overrides or Maven Local
 substitutes. The ZIP embeds the runtime helpers, never test-support, so installation requires no
 Maven setup.
