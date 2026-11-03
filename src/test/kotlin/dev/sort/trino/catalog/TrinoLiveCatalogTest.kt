@@ -72,7 +72,7 @@ class TrinoLiveCatalogTest : BasePlatformTestCase() {
 
     fun testDumpThroughTestKitEqualsBundled() {
         val harvest = requireNotNull(TrinoFunctionHarvester.harvest(JdbcCatalogRows(jdbc())))
-        assertEquals("483", harvest.shared.serverVersion)
+        assertEquals("484", harvest.shared.serverVersion)
         assertEquals(TRINO_METADATA.default.functions.functions.toSet(), harvest.shared.functions.map { it.def }.toSet())
     }
 
@@ -142,8 +142,8 @@ class TrinoLiveCatalogTest : BasePlatformTestCase() {
     }
 
     private fun rows(sql: String): List<List<String?>> = when (sql) {
-        TrinoFunctionHarvester.SQL_VERSION -> listOf(listOf("483"))
-        TrinoFunctionHarvester.SQL_FUNCTIONS -> Path.of(System.getProperty("corpus.dir")).parent.resolve("trino-functions-483.tsv")
+        TrinoFunctionHarvester.SQL_VERSION -> listOf(listOf("484"))
+        TrinoFunctionHarvester.SQL_FUNCTIONS -> Path.of(System.getProperty("corpus.dir")).parent.resolve("trino-functions-484.tsv")
             .readLines().filter(String::isNotBlank).map { it.split('\t') }
         else -> error("Unexpected SQL: $sql")
     }

@@ -24,7 +24,8 @@ class TrinoDriverFactsTest {
     @Test
     fun driverVersionMatchesPinnedArtifact() {
         val driver = Class.forName("io.trino.jdbc.TrinoDriver").getDeclaredConstructor().newInstance() as Driver
-        // trino-jdbc reports its release train as the major version (483.x).
-        assertEquals("pinned artifact and driver major must agree", 483, driver.majorVersion)
+        val artifact = requireNotNull(javaClass.classLoader.getResource("config/trino-brikk-artifacts.xml")).readText()
+        val pinned = Regex("""<version version="(\d+)">""").find(artifact)!!.groupValues[1].toInt()
+        assertEquals("downloaded artifact and test driver major must agree", pinned, driver.majorVersion)
     }
 }

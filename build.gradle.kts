@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "dev.sort.trino"
-version = "0.4.4"
+version = "0.5.0"
 
 sqlDialectPlugin {
     additionalBundledPlugins = listOf("Git4Idea")
@@ -20,8 +20,8 @@ sqlDialectPlugin {
             "brikk-engine-kotlin-intellij-support-${brikk.engine.kotlin.intellij.support.get()}.jar",
             "trino-parser-${trino.get()}.jar", "trino-grammar-${trino.get()}.jar",
             "antlr4-runtime-${antlr.get()}.jar",
-            "error_prone_annotations-2.41.0.jar", "failureaccess-1.0.3.jar",
-            "guava-33.5.0-jre.jar", "j2objc-annotations-3.1.jar", "jakarta.annotation-api-3.0.0.jar",
+            "error_prone_annotations-2.47.0.jar", "failureaccess-1.0.3.jar",
+            "guava-33.6.0-jre.jar", "j2objc-annotations-3.1.jar", "jakarta.annotation-api-3.0.0.jar",
             "jspecify-1.0.0.jar", "listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar",
         )
     }

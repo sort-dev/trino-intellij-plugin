@@ -8,12 +8,7 @@ scratch="$root/build/introspection-parity/live"
 mkdir -p "$scratch"
 exec 9>"$scratch/lane.lock"
 flock -n 9 || { echo "This live lane is already running" >&2; exit 75; }
-running=$(docker ps --format '{{.Image}} {{.Names}}')
-if grep -Eiq 'trino|clickhouse|doris|test-server|sql-test' <<<"$running"; then
-    echo "Another task engine is running; live lane deferred:" >&2
-    echo "$running" >&2
-    exit 75
-fi
+# Only serialize this checkout's live lane. Other projects' containers are independent.
 name="trino-introspection-$$"
 network="$name-net"
 container=""
@@ -70,9 +65,9 @@ connector.name=tpch
 tpch.splits-per-node=1
 EOF
 docker network create --internal "$network" >/dev/null
-container=$(docker run -d --name "$name" --network "$network" --memory=2g --memory-swap=2g \
-    --cpus=2 --pids-limit=512 --label dev.sort.task.engine=trino-introspection \
-    -v "$scratch/etc:/etc/trino:ro" trinodb/trino:483)
+container=$(docker run -d --name "$name" --network "$network" --memory=3g --memory-swap=3g \
+    --cpus=2 --pids-limit=1024 --label dev.sort.task.engine=trino-introspection \
+    -v "$scratch/etc:/etc/trino:ro" trinodb/trino:484)
 # The host reaches the private bridge directly; internal networks do not publish host ports.
 address=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$container")
 [[ -n $address ]] || { echo "Task container has no private address" >&2; exit 1; }

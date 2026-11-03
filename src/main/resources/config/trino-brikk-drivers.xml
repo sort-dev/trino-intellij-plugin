@@ -1,7 +1,7 @@
 <drivers>
   <!-- Trino under the Trino (sort.dev) dialect, official io.trino:trino-jdbc driver via OUR pinned
        artifact (config/trino-brikk-artifacts.xml) so driver auto-download always matches the
-       trino-parser version this plugin bundles and is graded against (483).
+       trino-parser version this plugin bundles and is graded against (484).
 
        NAME: "Trino (sort.dev)", NOT bare "Trino" — DataGrip SHIPS a stock generic "Trino" driver
        (io.trino.jdbc.TrinoDriver, no dialect); a bare name collides with it in the drivers list.

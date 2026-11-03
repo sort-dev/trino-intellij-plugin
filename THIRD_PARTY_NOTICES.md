@@ -2,10 +2,10 @@
 
 ## Embedded Brikk libraries
 
-The plugin bundles `dev.brikk.house:brikk-sql-jvm:0.20.0` and matching
-`brikk-sql-metadata-jvm:0.20.0`, `brikk-sql-verify-api:0.20.0`,
-`brikk-sql-verify-trino:0.20.0`, `brikk-sql-intellij-support:0.2.3`,
-`brikk-sql-intellij-jdbc-support:0.2.3`, and
+The plugin bundles `dev.brikk.house:brikk-sql-jvm:0.23.0` and matching
+`brikk-sql-metadata-jvm:0.23.0`, `brikk-sql-verify-api:0.23.0`,
+`brikk-sql-verify-trino:0.23.0`, `brikk-sql-intellij-support:0.4.0`,
+`brikk-sql-intellij-jdbc-support:0.4.0`, and
 `brikk-engine-kotlin-intellij-support:0.3.0`, Copyright Brikk / Sortdev SRL,
 under the Apache License 2.0. Exact versions are declared in build.gradle.kts
 and checked in the final distribution. The IntelliJ helpers include their notices.
@@ -102,7 +102,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Guava
 
-The plugin bundles `com.google.guava:guava:33.5.0-jre` and its `failureaccess`
+The plugin bundles `com.google.guava:guava:33.6.0-jre` and its `failureaccess`
 and empty `listenablefuture` compatibility artifacts, Copyright Google LLC,
 under the Apache License 2.0, included in `META-INF/LICENSE`.
 

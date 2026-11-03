@@ -21,11 +21,11 @@ own parser, so the errors you see are the ones Trino would report.
 - **Correct statement boundaries** across Trino SQL, including SQL routines
   (`CREATE FUNCTION … BEGIN … END` with semicolons inside), `MATCH_RECOGNIZE`, `PIVOT`, JSON
   functions, `GRANT`/`DENY`, branch DDL and prepared statements.
-- **Trino's own error checking.** The bundled Trino 483 parser checks every statement and
+- **Trino's own error checking.** The bundled Trino 484 parser checks every statement and
   underlines errors at the exact line and column, with Trino's own messages. This works without a
   data source or server.
-- **Function completion** for 442 Trino functions (scalar, aggregate, window and table), with
-  return types, plus 83 reserved words.
+- **Function completion** for Trino 484 functions (scalar, aggregate, window and table), with
+  return types and reserved keywords.
 - **A working database tree.** Connectors show up as catalogs (`tpch`, `memory`, …).
 - **Completion that loads as you type.** Catalogs list on connect. Typing `hive.` or `hive.web.`
   loads just that catalog or schema, so a catalog with thousands of tables never loads all at once.
@@ -34,8 +34,34 @@ own parser, so the errors you see are the ones Trino would report.
 - **Trino PIPE (optional).** Write pipe-syntax queries and run them on Trino. See
   [Trino PIPE](#trino-pipe).
 
-All 490 statements in a test set taken from Trino's own repository (150 syntax families) parse
-cleanly. The set is rebuilt for each Trino version, so coverage is re-checked on every upgrade.
+The regression suite includes 490 statements from Trino 483's repository across 150 syntax
+families, plus checks for Trino 484 syntax.
+
+## Trino 484 support
+
+The editor understands Trino 484's new SQL forms:
+
+- JSON value construction with `JSON(...)`, serialization with `JSON_SERIALIZE(...)`, and
+  `json_scalar(...)`. SQL/JSON functions such as `JSON_VALUE`, `JSON_QUERY`, `JSON_EXISTS` and
+  `JSON_TABLE` also accept JSON values directly.
+- Interval leading-field precision and up to 12 fractional-second digits, including interval
+  types in casts and qualifiers on datetime subtraction.
+- Window-frame `EXCLUDE CURRENT ROW`, `EXCLUDE GROUP`, `EXCLUDE TIES` and `EXCLUDE NO OTHERS`.
+- `CREATE VIEW IF NOT EXISTS` and `COMMENT ON MATERIALIZED VIEW`.
+
+For example:
+
+```sql
+SELECT JSON_SERIALIZE(JSON('{"n":1}')) AS document,
+       CAST(NULL AS INTERVAL DAY(3) TO SECOND(12)) AS duration;
+```
+
+Interval casts retain their declared precision during column analysis. Function completion
+includes `json_scalar` and `JSON_SERIALIZE`; `JSON_SERIALIZE` is now reserved, so quote it when
+using it as an identifier.
+
+The bundled validator and downloadable JDBC driver both use Trino 484. Executing the new SQL
+forms requires a Trino 484 or later server.
 
 ## Requirements
 

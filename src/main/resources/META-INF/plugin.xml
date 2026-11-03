@@ -7,9 +7,11 @@
         <p>A real <b>Trino SQL dialect</b> for DataGrip and IntelliJ-family IDEs. Stock IDEs treat
         Trino/Presto/Athena as generic data sources with the Generic SQL editor; this plugin gives
         Trino SQL first-class treatment, validated by <b>Trino's own parser</b> (io.trino:trino-parser,
-        bundled, version 483).</p>
+        bundled, version 484).</p>
 
         <ul>
+            <li><b>Trino 484 syntax:</b> JSON construction and serialization, precise intervals,
+                window-frame EXCLUDE, CREATE VIEW IF NOT EXISTS and materialized-view comments.</li>
             <li><b>Built-in PIPE queries:</b> project-opt-in <code>|&gt;</code> syntax, validated
                 and lowered to Trino SQL through the normal console. SQL Transpiler is not required.</li>
             <li><b>Brikk Kotlin editing:</b> resolved <code>Sql.trino</code> templates retain Kotlin
@@ -19,8 +21,8 @@
                 clause functions, GRANT/DENY, prepared statements and more.</li>
             <li><b>Engine-exact errors, zero setup:</b> the bundled trino-parser validates every
                 statement — Trino's own grammar, exact positions, no server needed.</li>
-            <li><b>Function completion:</b> 442 functions (kind icons, return types) harvested from
-                Trino 483, plus its 83 reserved words.</li>
+            <li><b>Function completion:</b> functions harvested from Trino 484 with kind icons,
+                return types and reserved keywords.</li>
             <li><b>Schema tree that fills in as you type:</b> connectors appear as catalogs on
                 connect; drilling into a catalog or schema during completion introspects just that
                 namespace, one level at a time — so a huge <code>hive</code>/<code>iceberg</code>
@@ -43,6 +45,16 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>0.5.0</b>
+        <ul>
+            <li>Adopt Brikk SQL 0.23.0 and common SQL editing/JDBC support 0.4.0.</li>
+            <li>Align validation, function completion and the downloadable JDBC driver with Trino 484.</li>
+            <li>Support JSON value construction, JSON_SERIALIZE, json_scalar and JSON inputs to SQL/JSON functions.</li>
+            <li>Support interval leading-field precision, up to 12 fractional-second digits and qualifiers on datetime subtraction.</li>
+            <li>Fix the interval-cast highlighting exception and preserve interval precision in column analysis.</li>
+            <li>Support window-frame EXCLUDE, CREATE VIEW IF NOT EXISTS and COMMENT ON MATERIALIZED VIEW.</li>
+            <li>Refresh function signatures and reserved keywords, including JSON_SERIALIZE.</li>
+        </ul>
         <b>0.4.4</b>
         <ul>
             <li>SQL IntelliJ support 0.2.3: no deprecated, scheduled-for-removal or experimental platform calls that have stable equivalents; no behavior changes.</li>

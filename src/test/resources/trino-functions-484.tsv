@@ -64,8 +64,8 @@ atan2	double	double, double	scalar	true	Arc tangent of given fraction
 avg	decimal(p,s)	decimal(p,s)	aggregate	true	Calculates the average value
 avg	double	bigint	aggregate	true	
 avg	double	double	aggregate	true	
-avg	interval day to second	interval day to second	aggregate	true	
-avg	interval year to month	interval year to month	aggregate	true	
+avg	interval day(9) to second(p)	interval day(9) to second(p)	aggregate	true	
+avg	interval year(9) to month	interval year(9) to month	aggregate	true	
 avg	number	number	aggregate	true	
 avg	real	real	aggregate	true	Returns the average value of the argument
 bar	varchar	double, bigint	scalar	true	
@@ -205,16 +205,14 @@ date_trunc	timestamp(p)	varchar(x), timestamp(p)	scalar	true	Truncate to the spe
 date_trunc	timestamp(p) with time zone	varchar(x), timestamp(p) with time zone	scalar	true	Truncate to the specified precision
 day	bigint	date	scalar	true	Day of the month of the given date
 day	bigint	date	scalar	true	Day of the month of the given date
-day	bigint	interval day to second	scalar	true	Day of the month of the given interval
-day	bigint	interval day to second	scalar	true	Day of the month of the given interval
+day	bigint	interval day to second	scalar	true	Day of the given interval
 day	bigint	timestamp(p)	scalar	true	Day of the month of the given timestamp
 day	bigint	timestamp(p)	scalar	true	Day of the month of the given timestamp
 day	bigint	timestamp(p) with time zone	scalar	true	Day of the month of the given timestamp
 day	bigint	timestamp(p) with time zone	scalar	true	Day of the month of the given timestamp
 day_of_month	bigint	date	scalar	true	Day of the month of the given date
 day_of_month	bigint	date	scalar	true	Day of the month of the given date
-day_of_month	bigint	interval day to second	scalar	true	Day of the month of the given interval
-day_of_month	bigint	interval day to second	scalar	true	Day of the month of the given interval
+day_of_month	bigint	interval day to second	scalar	true	Day of the given interval
 day_of_month	bigint	timestamp(p)	scalar	true	Day of the month of the given timestamp
 day_of_month	bigint	timestamp(p)	scalar	true	Day of the month of the given timestamp
 day_of_month	bigint	timestamp(p) with time zone	scalar	true	Day of the month of the given timestamp
@@ -369,6 +367,23 @@ json_extract_scalar	varchar	json, jsonpath	scalar	true
 json_extract_scalar	varchar(x)	varchar(x), jsonpath	scalar	true	
 json_format	varchar	json	scalar	true	
 json_parse	json	varchar(x)	scalar	true	
+json_scalar	json	bigint	scalar	true	
+json_scalar	json	boolean	scalar	true	
+json_scalar	json	char(x)	scalar	true	
+json_scalar	json	date	scalar	true	
+json_scalar	json	decimal(p,s)	scalar	true	Constructs a JSON scalar from a decimal value
+json_scalar	json	double	scalar	true	
+json_scalar	json	integer	scalar	true	
+json_scalar	json	number	scalar	true	
+json_scalar	json	real	scalar	true	
+json_scalar	json	smallint	scalar	true	
+json_scalar	json	time(p)	scalar	true	
+json_scalar	json	time(p) with time zone	scalar	true	Constructs a JSON scalar from a time-with-time-zone value
+json_scalar	json	timestamp(p)	scalar	true	Constructs a JSON scalar from a timestamp value
+json_scalar	json	timestamp(p) with time zone	scalar	true	Constructs a JSON scalar from a timestamp-with-time-zone value
+json_scalar	json	tinyint	scalar	true	
+json_scalar	json	unknown	scalar	true	
+json_scalar	json	varchar(x)	scalar	true	
 json_size	bigint	json, jsonpath	scalar	true	
 json_size	bigint	varchar(x), jsonpath	scalar	true	
 kurtosis	double	bigint	aggregate	true	Returns the (excess) kurtosis of the argument
@@ -484,7 +499,7 @@ objectid_timestamp	timestamp(3) with time zone	objectid	scalar	true	Timestamp fr
 parse_data_size	decimal(38,0)	varchar(x)	scalar	true	Converts data size string to bytes
 parse_data_size	decimal(38,0)	varchar(x)	scalar	true	Converts data size string to bytes
 parse_datetime	timestamp(3) with time zone	varchar(x), varchar(y)	scalar	true	Parses the specified date/time by the given format
-parse_duration	interval day to second	varchar(x)	scalar	true	Convert duration string to an interval
+parse_duration	interval day(9) to second(6)	varchar(x)	scalar	true	Convert duration string to an interval
 parse_presto_data_size	decimal(38,0)	varchar(x)	scalar	true	Converts data size string to bytes
 parse_presto_data_size	decimal(38,0)	varchar(x)	scalar	true	Converts data size string to bytes
 percent_rank	double		window	true	
@@ -609,10 +624,10 @@ second	bigint	timestamp(p) with time zone	scalar	true	Second of the minute of th
 sequence	array(bigint)	bigint, bigint	scalar	true	
 sequence	array(bigint)	bigint, bigint, bigint	scalar	true	Sequence function to generate synthetic arrays
 sequence	array(date)	date, date	scalar	true	
-sequence	array(date)	date, date, interval day to second	scalar	true	
-sequence	array(date)	date, date, interval year to month	scalar	true	
-sequence	array(timestamp(p))	timestamp(p), timestamp(p), interval day to second	scalar	true	
-sequence	array(timestamp(p))	timestamp(p), timestamp(p), interval year to month	scalar	true	
+sequence	array(date)	date, date, interval day(q) to second(r)	scalar	true	
+sequence	array(date)	date, date, interval year(q) to month	scalar	true	
+sequence	array(timestamp(p))	timestamp(p), timestamp(p), interval year(q) to month	scalar	true	
+sequence	array(timestamp(u))	timestamp(p), timestamp(p), interval day(q) to second(r)	scalar	true	
 sequence	unknown	bigint, bigint, bigint	table	false	Sequence function to generate synthetic tables
 sequence	unknown	bigint, bigint, bigint	table	false	Sequence function to generate synthetic tables
 sha1	varbinary	varbinary	scalar	true	Compute sha1 hash
@@ -768,8 +783,8 @@ substring	varchar(x)	varchar(x), bigint, bigint	scalar	true	Substring of given l
 sum	bigint	bigint	aggregate	true	
 sum	decimal(38,s)	decimal(p,s)	aggregate	true	Calculates the sum over the input values
 sum	double	double	aggregate	true	
-sum	interval day to second	interval day to second	aggregate	true	
-sum	interval year to month	interval year to month	aggregate	true	
+sum	interval day(9) to second(p)	interval day(9) to second(p)	aggregate	true	
+sum	interval year(9) to month	interval year(9) to month	aggregate	true	
 sum	number	number	aggregate	true	
 sum	real	real	aggregate	true	
 t_cdf	double	double, double	scalar	true	Student's t-distribution cumulative density function given the x and degrees of freedom
@@ -805,7 +820,7 @@ to_ieee754_64	varbinary	double	scalar	true	Encode value as a big endian varbinar
 to_iso8601	varchar(16)	date	scalar	true	
 to_iso8601	varchar(n)	timestamp(p)	scalar	true	
 to_iso8601	varchar(n)	timestamp(p) with time zone	scalar	true	
-to_milliseconds	bigint	interval day to second	scalar	true	
+to_milliseconds	bigint	interval day(q) to second(r)	scalar	true	
 to_spherical_geography	sphericalgeography	geometry	scalar	true	Converts a Geometry object to a SphericalGeography object
 to_timestamp	timestamp(3)	varchar, varchar	scalar	true	Converts a string to a TIMESTAMP data type
 to_unixtime	double	timestamp(p) with time zone	scalar	true	
