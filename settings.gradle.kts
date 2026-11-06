@@ -9,7 +9,7 @@ dependencyResolutionManagement {
             // Plugin release pins; keep the shared conventions tree unchanged.
             version("brikk-sql-core", "0.23.0")
             version("brikk-sql-verify", "0.23.0")
-            version("brikk-sql-intellij-support", "0.4.0")
+            version("brikk-sql-intellij-support", "0.4.1")
             version("trino", "484")
         }
     }

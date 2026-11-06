@@ -5,11 +5,11 @@ Build and release notes for contributors. User documentation lives in the
 
 ## Building from source
 
-Release **0.5.0** upgrades `0.4.4` and development builds with Trino 484 support.
+Release **0.5.1** updates common SQL editing and JDBC support to 0.4.1, retaining Trino 484 support.
 
 ```bash
 ./gradlew buildPlugin   # → build/distributions/trino-intellij-plugin-<dev-version>.zip
-./gradlew buildPlugin -Prelease=true   # → build/distributions/trino-intellij-plugin-0.5.0.zip
+./gradlew buildPlugin -Prelease=true   # → build/distributions/trino-intellij-plugin-0.5.1.zip
 ./gradlew test          # boot + driver-facts + parser-authority (census scoreboard arrives with Stage 1)
 ```
 
@@ -27,7 +27,7 @@ the same 261-compiled classes. The generated-shape test runs on `test262` with
 The plugin's `settings.gradle.kts` overrides the shared catalog with formal `dev.brikk.house` coordinates from
 Maven Central: `brikk-sql-jvm`, `brikk-sql-metadata-jvm`, `brikk-sql-verify-api` and
 `brikk-sql-verify-trino` **0.23.0**; `brikk-sql-intellij-support` and test-only
-`brikk-sql-intellij-test-support` **0.4.0**, with the optional `brikk-sql-intellij-jdbc-support` **0.4.0**;
+`brikk-sql-intellij-test-support` **0.4.1**, with the optional `brikk-sql-intellij-jdbc-support` **0.4.1**;
 `brikk-engine-kotlin-intellij-support` **0.3.0**. There are no snapshot overrides or Maven Local
 substitutes. The ZIP embeds the runtime helpers, never test-support, so installation requires no
 Maven setup. Trino parser and JDBC are pinned to **484**. The vendored conventions remain unchanged.

@@ -45,6 +45,10 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>0.5.1</b>
+        <ul>
+            <li>Update common SQL editing and JDBC support to 0.4.1.</li>
+        </ul>
         <b>0.5.0</b>
         <ul>
             <li>Adopt Brikk SQL 0.23.0 and common SQL editing/JDBC support 0.4.0.</li>
