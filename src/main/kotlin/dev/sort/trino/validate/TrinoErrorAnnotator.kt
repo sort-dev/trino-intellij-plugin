@@ -4,6 +4,7 @@ import com.intellij.lang.Language
 import com.intellij.openapi.components.service
 import com.intellij.openapi.util.Key
 import com.intellij.psi.PsiFile
+import dev.brikk.house.sql.BrikkSqlError
 import dev.brikk.house.sql.diagnostics.*
 import dev.brikk.house.sql.intellij.diagnostics.NativeErrorAnnotator
 import dev.brikk.house.sql.intellij.diagnostics.NativeErrorProfile
@@ -64,6 +65,8 @@ object TrinoNativeErrorProfile : NativeErrorProfile {
             } catch (e: TokenError) {
                 NativeError("Trino Brikk: ${e.message}", 0)
             } catch (e: ShapeError) {
+                NativeError("Trino Brikk: ${e.message}", 0)
+            } catch (e: BrikkSqlError) {
                 NativeError("Trino Brikk: ${e.message}", 0)
             }
             return customError(script, range, error)

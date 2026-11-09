@@ -38,6 +38,25 @@ class TrinoPipesEngineTest {
             assertNotNull(result.result.sourceMap)
         }
     }
+    @Test fun compactCaseEndLowersToNativeTrino() {
+        val sql = "FROM t |> SELECT CASE WHEN a = 1 THEN 13END AS n"
+        val result = assertIs<PipeTranslation.Lowered>(TrinoPipeDialect.lower(sql))
+        assertNull(result.blocker, result.sql)
+        assertSame(NativeVerdict.Accepted, result.verdict)
+        assertTrue("THEN 13 END" in result.sql.replace(Regex("\\s+"), " "), result.sql)
+        assertFalse(TrinoPipeDialect.containsPipe(result.sql))
+        assertSame(VerifyResult.Accepted, TrinoNativeValidation.verify(result.sql), result.sql)
+    }
+    @Test fun valuesAliasPrecedesNestedJoinInNativeTrino() {
+        val sql = "FROM (VALUES (1)) AS v(a) " +
+            "JOIN (left_rows AS l JOIN right_rows AS r ON l.id = r.id) ON v.a = l.id |> SELECT v.a"
+        val result = assertIs<PipeTranslation.Lowered>(TrinoPipeDialect.lower(sql))
+        assertNull(result.blocker, result.sql)
+        assertSame(NativeVerdict.Accepted, result.verdict)
+        assertTrue(Regex("\\)\\s+AS v\\s*\\(a\\)\\s+JOIN\\s*\\(").containsMatchIn(result.sql), result.sql)
+        assertFalse(TrinoPipeDialect.containsPipe(result.sql))
+        assertSame(VerifyResult.Accepted, TrinoNativeValidation.verify(result.sql), result.sql)
+    }
     @Test fun lexicalOwnershipAndRoutineBoundaries() {
         for (sql in listOf("SELECT '|>'", "SELECT 1 -- |> hi", "SELECT \"|>\" FROM t", "SELECT 'broken |> hidden"))
             assertFalse(TrinoPipeDialect.containsPipe(sql), sql)
