@@ -45,6 +45,14 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>0.6.0</b>
+        <ul>
+            <li>Brikk SQL 1.0.1 and IntelliJ support 1.0.1, including shared JDBC support.</li>
+            <li>Refresh shared SQL analysis and Trino PIPE conversion with the SQLGlot 30.29 catch-up.</li>
+            <li>Accept compact CASE endings such as <code>THEN 13END</code> in PIPE queries.</li>
+            <li>Keep VALUES aliases before nested joins so generated PIPE SQL passes Trino's native validator.</li>
+            <li>Report the full Brikk SQL error family as editor diagnostics while retaining precise parse-error positions.</li>
+        </ul>
         <b>0.5.1</b>
         <ul>
             <li>Update common SQL editing and JDBC support to 0.4.1.</li>

@@ -1,14 +1,14 @@
 # Third-party notices
 
-## Embedded Brikk libraries
+## Embedded Brikk SQL and IntelliJ support 1.0.1
 
-The plugin bundles `dev.brikk.house:brikk-sql-jvm:0.23.0` and matching
-`brikk-sql-metadata-jvm:0.23.0`, `brikk-sql-verify-api:0.23.0`,
-`brikk-sql-verify-trino:0.23.0`, `brikk-sql-intellij-support:0.4.1`,
-`brikk-sql-intellij-jdbc-support:0.4.1`, and
-`brikk-engine-kotlin-intellij-support:0.3.0`, Copyright Brikk / Sortdev SRL,
-under the Apache License 2.0. Exact versions are declared in build.gradle.kts
-and checked in the final distribution. The IntelliJ helpers include their notices.
+The plugin bundles `dev.brikk.house:brikk-sql-jvm:1.0.1`,
+`dev.brikk.house:brikk-sql-metadata-jvm:1.0.1`, `dev.brikk.house:brikk-sql-verify-api:1.0.1`,
+`dev.brikk.house:brikk-sql-verify-trino:1.0.1`, `dev.brikk.house:brikk-sql-intellij-support:1.0.1`,
+`dev.brikk.house:brikk-sql-intellij-jdbc-support:1.0.1`, and the separate Kotlin helper
+`dev.brikk.house:brikk-engine-kotlin-intellij-support:0.3.0`, Copyright Brikk / Sortdev SRL,
+under the Apache License 2.0. Exact versions are declared in settings.gradle.kts and
+the vendored version catalog, and checked in the final distribution. The IntelliJ helpers include their notices.
 The SQL engine includes work derived from SQLGlot, Copyright Toby Mao and the
 SQLGlot contributors, under the MIT License reproduced below.
 
