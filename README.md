@@ -72,7 +72,7 @@ still passes Trino's own validator before execution. Trino parser and JDBC suppo
 
 ## Requirements
 
-- DataGrip or IntelliJ IDEA Ultimate, **2026.1 to 2026.3**.
+- DataGrip or IntelliJ IDEA Ultimate, **2026.2 or 2026.3**, using the IDE's bundled Java 25.
 - A Trino server for the database tree, completion from your catalogs, and running queries. Error
   checking works without one.
 

@@ -9,6 +9,8 @@
         Trino SQL first-class treatment, validated by <b>Trino's own parser</b> (io.trino:trino-parser,
         bundled, version 484).</p>
 
+        <p>Compatible with the <b>2026.2 and 2026.3 IDE lines</b>, using the IDE's bundled Java 25.</p>
+
         <ul>
             <li><b>Trino 484 syntax:</b> JSON construction and serialization, precise intervals,
                 window-frame EXCLUDE, CREATE VIEW IF NOT EXISTS and materialized-view comments.</li>
@@ -45,6 +47,10 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>Unreleased</b>
+        <ul>
+            <li>The next release requires IDE 2026.2 or later and runs on the IDE's Java 25.</li>
+        </ul>
         <b>0.6.0</b>
         <ul>
             <li>Brikk SQL 1.0.1 and IntelliJ support 1.0.1, including shared JDBC support.</li>

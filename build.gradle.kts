@@ -8,7 +8,6 @@ version = "0.6.0"
 sqlDialectPlugin {
     additionalBundledPlugins = listOf("Git4Idea")
     legalFiles = listOf("LICENSE")
-    bytecodeCeilings = mapOf("trino-parser" to 69)
     embeddedLibraries = with(libs.versions) {
         setOf(
             "brikk-sql-jvmMain-${brikk.sql.core.get()}.jar",

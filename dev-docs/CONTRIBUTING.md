@@ -14,12 +14,12 @@ mise exec -- ./gradlew buildPlugin -Prelease=true   # → build/distributions/tr
 mise exec -- ./gradlew test          # boot + driver-facts + parser-authority (census scoreboard arrives with Stage 1)
 ```
 
-Compile SDK: IDEA 2026.1.3, Kotlin 2.4.10. Plugin and helper classes target Java 21;
-the bundled Trino 484 parser requires Java 25. Build/test with JDK 25 and use the
-supported IDE's bundled JBR 25. Kotlin integration is optional in DataGrip.
+Compile SDK: IDEA 262.10968.63, Kotlin 2.4.10. Plugin classes target Java 25,
+as does the bundled Trino 484 parser. Build/test with JDK 25 and use the supported
+2026.2 or 2026.3 IDE's bundled JBR 25. Kotlin integration is optional in DataGrip.
 
-`mise exec -- ./gradlew test262 test263` runs the full offline suite on newer IDE runtimes using
-the same 261-compiled classes. The generated-shape test runs on `test262` with
+`mise exec -- ./gradlew test262 test263` runs the full offline suite on supported IDE runtimes using
+the same 262-compiled classes. The generated-shape test runs on `test262` with
 `-Ptest.ide262=/path/to/IDEA-262.9437.185` and
 `-Ptest.brikkCompilerPlugin=/path/to/the/reviewed/compiler-plugin.jar`.
 
@@ -31,7 +31,9 @@ Maven Central: `brikk-sql-jvm`, `brikk-sql-metadata-jvm`, `brikk-sql-verify-api`
 `brikk-sql-intellij-test-support` **1.0.1**, with the optional `brikk-sql-intellij-jdbc-support` **1.0.1**;
 `brikk-engine-kotlin-intellij-support` **0.3.0**. There are no snapshot overrides or Maven Local
 substitutes. The ZIP embeds the runtime helpers, never test-support, so installation requires no
-Maven setup. Trino parser and JDBC are pinned to **484**. The vendored conventions remain unchanged.
+Maven setup. Trino parser and JDBC are pinned to **484**. The vendored conventions are synced
+from `387c9f3` (262 compile SDK, since-build 262, Java 25 toolchains/bytecode ceiling
+and isolation-only test selection).
 
 `-Prelease=true` uses the base version unchanged and makes `buildPlugin` run the shared
 `verifyRelease` dependency guard. Property key/value completion remains disabled.

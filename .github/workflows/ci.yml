@@ -23,7 +23,7 @@ jobs:
       - name: Set up Gradle (with caching)
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Test on 261
+      - name: Test on the 262 compile SDK
         run: ./gradlew test
 
       - name: Test on 262 and 263 with Kotlin

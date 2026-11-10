@@ -9,7 +9,7 @@ jobs:
   release:
     permissions:
       contents: write
-    uses: sort-dev/intellij-sql-plugin-gradle-conventions/.github/workflows/release-plugin-zip.yml@9d438ea260e6fb86950af771139bbd4b704b79e6
+    uses: sort-dev/intellij-sql-plugin-gradle-conventions/.github/workflows/release-plugin-zip.yml@387c9f39bf66142cf9f07074bc340f44ae1d3801
     with:
       plugin-id: dev.sort.trino-intellij-plugin
       title: SQL Dialect for Trino
