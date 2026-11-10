@@ -28,7 +28,6 @@ class TrinoPipesIsolationTest : BasePlatformTestCase() {
             "dev.brikk.house.sql.intellij.editor.KeywordOverlayHighlighterFactory", "dev.brikk.house.sql.intellij.dialect.PgFamilyDialect",
             "dev.brikk.house.sql.intellij.dialect.SqlDialectRegistry",
             "dev.brikk.house.sql.intellij.catalog.PgFamilyModelFacade",
-            "dev.brikk.house.sql.intellij.catalog.GenericJdbcIntrospectorGate",
             "dev.brikk.house.sql.intellij.catalog.DialectDataSourceResolver",
             "dev.brikk.house.sql.intellij.catalog.DataSourceResolution",
             "dev.brikk.house.sql.intellij.catalog.CatalogProfile", "dev.brikk.house.sql.intellij.catalog.CatalogScopes",
@@ -52,8 +51,10 @@ class TrinoPipesIsolationTest : BasePlatformTestCase() {
             loader.loadClass("dev.sort.trino.sql.TrinoSqlDialect").superclass.name)
         assertEquals("dev.brikk.house.sql.intellij.catalog.PgFamilyModelFacade",
             loader.loadClass("dev.sort.trino.TrinoModelFacade").superclass.name)
-        assertEquals("dev.brikk.house.sql.intellij.catalog.GenericJdbcIntrospectorGate",
-            loader.loadClass("dev.sort.trino.TrinoIntrospectorGate").superclass.name)
+        // Trino bundles JDBC support; peers such as ClickHouse need not bundle it.
+        val introspectorGate = loader.loadClass("dev.brikk.house.sql.intellij.catalog.GenericJdbcIntrospectorGate")
+        assertSame(loader, introspectorGate.classLoader)
+        assertSame(introspectorGate, loader.loadClass("dev.sort.trino.TrinoIntrospectorGate").superclass)
         assertEquals("dev.brikk.house.sql.intellij.diagnostics.NativeErrorAnnotator",
             loader.loadClass("dev.sort.trino.validate.TrinoErrorAnnotator").superclass.name)
         assertEquals("dev.brikk.house.sql.intellij.catalog.ShowCreateDefinitionProvider",
@@ -129,7 +130,7 @@ class TrinoPipesIsolationTest : BasePlatformTestCase() {
                 val peerHasLiveKit = peer.pluginClassLoader!!.getResource("dev/brikk/house/sql/intellij/catalog/LiveCatalogService.class") != null
                 for (shared in listOf("lexer.MaskingSqlLexer", "pipe.PipeStatementGate", "editor.MaskedSpanRecolorAnnotator",
                     "dialect.PgFamilyDialect", "dialect.SqlDialectRegistry", "catalog.PgFamilyModelFacade",
-                    "catalog.GenericJdbcIntrospectorGate", "catalog.DialectDataSourceResolver", "catalog.DataSourceResolution") +
+                    "catalog.DialectDataSourceResolver", "catalog.DataSourceResolution") +
                     catalogKit.takeIf { peerHasCatalogKit }.orEmpty() + liveKit.takeIf { peerHasLiveKit }.orEmpty()) {
                     val type = "dev.brikk.house.sql.intellij.$shared"
                     val peerType = peer.pluginClassLoader!!.loadClass(type)
