@@ -5,12 +5,13 @@ Build and release notes for contributors. User documentation lives in the
 
 ## Building from source
 
-Release **0.6.0** adopts Brikk SQL and common SQL editing/JDBC support **1.0.1**,
+Release **0.7.0** requires IDE 2026.2 or later and runs on the IDE's Java 25, dropping
+IDE 2026.1 support. Brikk SQL and common SQL editing/JDBC support remain at **1.0.1**,
 including the SQLGlot 30.29 catch-up, while retaining Trino 484 support.
 
 ```bash
 mise exec -- ./gradlew buildPlugin   # → build/distributions/trino-intellij-plugin-<dev-version>.zip
-mise exec -- ./gradlew buildPlugin -Prelease=true   # → build/distributions/trino-intellij-plugin-0.6.0.zip
+mise exec -- ./gradlew buildPlugin -Prelease=true   # → build/distributions/trino-intellij-plugin-0.7.0.zip
 mise exec -- ./gradlew test          # boot + driver-facts + parser-authority (census scoreboard arrives with Stage 1)
 ```
 
@@ -65,10 +66,10 @@ mise exec -- ./gradlew test262 test263 -Ptest.kotlin=present
 mise exec -- ./gradlew buildPlugin verifyPlugin
 mise exec -- ./gradlew test test262 test263 -Ptest.kotlin=absent
 mise exec -- ./gradlew buildPlugin verifyDistribution verifyPlugin -Prelease=true '-PverificationIdes=IU-262.10968.63 IU-263.5701.42'
-python3 build-logic/tools/check-api-approvals.py build/reports/pluginVerifier dev.sort.trino-intellij-plugin 0.6.0 IU-262.10968.63 IU-263.5701.42
+python3 build-logic/tools/check-api-approvals.py build/reports/pluginVerifier dev.sort.trino-intellij-plugin 0.7.0 IU-262.10968.63 IU-263.5701.42
 release_audit=$(mktemp -d)
-cp build/distributions/trino-intellij-plugin-0.6.0.zip "$release_audit/"
-python3 build-logic/tools/verify-release-zip.py "$release_audit" dev.sort.trino-intellij-plugin 0.6.0
+cp build/distributions/trino-intellij-plugin-0.7.0.zip "$release_audit/"
+python3 build-logic/tools/verify-release-zip.py "$release_audit" dev.sort.trino-intellij-plugin 0.7.0
 ```
 
 The ZIP guard requires exactly one ZIP, as in CI's clean checkout. A fresh audit directory

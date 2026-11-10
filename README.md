@@ -63,9 +63,12 @@ using it as an identifier.
 The bundled validator and downloadable JDBC driver both use Trino 484. Executing the new SQL
 forms requires a Trino 484 or later server.
 
-## What's new in 0.6.0
+## What's new in 0.7.0
 
-Brikk SQL 1.0.1 and IntelliJ support 1.0.1 bring the SQLGlot 30.29 catch-up to shared SQL
+Requires IDE 2026.2 or later and runs on the IDE's bundled Java 25. IDE 2026.1 is no
+longer supported. Brikk SQL and IntelliJ support remain at 1.0.1.
+
+Brikk SQL 1.0.1 and IntelliJ support 1.0.1 include the SQLGlot 30.29 catch-up to shared SQL
 analysis and Trino PIPE conversion. PIPE queries now accept compact CASE endings such as
 `THEN 13END`, and keep VALUES aliases in the right place before nested joins. Generated SQL
 still passes Trino's own validator before execution. Trino parser and JDBC support remain at 484.

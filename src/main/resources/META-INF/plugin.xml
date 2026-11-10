@@ -47,9 +47,11 @@
     ]]></description>
 
     <change-notes><![CDATA[
-        <b>Unreleased</b>
+        <b>0.7.0</b>
         <ul>
-            <li>The next release requires IDE 2026.2 or later and runs on the IDE's Java 25.</li>
+            <li>Requires IDE 2026.2 or later; IDE 2026.1 is no longer supported.</li>
+            <li>Runs on the IDE's Java 25.</li>
+            <li>Brikk SQL and IntelliJ support remain at 1.0.1.</li>
         </ul>
         <b>0.6.0</b>
         <ul>
